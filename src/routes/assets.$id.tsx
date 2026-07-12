@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { assets, priorityTone, userById } from "@/lib/mock-data";
+import { assets, priorityTone, userById, type Asset } from "@/lib/mock-data";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusPill } from "@/components/StatusPill";
 import { ArrowLeft, Check, Download, FileText, MessageSquare, Upload, X } from "lucide-react";
