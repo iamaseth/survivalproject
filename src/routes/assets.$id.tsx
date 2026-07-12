@@ -23,7 +23,7 @@ export const Route = createFileRoute("/assets/$id")({
 });
 
 function AssetDetail() {
-  const { asset } = Route.useLoaderData();
+  const { asset } = Route.useLoaderData() as { asset: Asset };
   const owner = userById(asset.ownerId);
   const assignee = asset.assigneeId ? userById(asset.assigneeId) : null;
 
