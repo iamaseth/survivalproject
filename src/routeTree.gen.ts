@@ -9,38 +9,294 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WebsiteRouteImport } from './routes/website'
+import { Route as VideoRouteImport } from './routes/video'
+import { Route as TeamActionsRouteImport } from './routes/team-actions'
+import { Route as SeoRouteImport } from './routes/seo'
+import { Route as ReviewRouteImport } from './routes/review'
+import { Route as LeadsRouteImport } from './routes/leads'
+import { Route as EmailRouteImport } from './routes/email'
+import { Route as DecisionsRouteImport } from './routes/decisions'
+import { Route as CommentsRouteImport } from './routes/comments'
+import { Route as AssetsRouteImport } from './routes/assets'
+import { Route as ArchiveRouteImport } from './routes/archive'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AssetsIdRouteImport } from './routes/assets.$id'
 
+const WebsiteRoute = WebsiteRouteImport.update({
+  id: '/website',
+  path: '/website',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VideoRoute = VideoRouteImport.update({
+  id: '/video',
+  path: '/video',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeamActionsRoute = TeamActionsRouteImport.update({
+  id: '/team-actions',
+  path: '/team-actions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SeoRoute = SeoRouteImport.update({
+  id: '/seo',
+  path: '/seo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReviewRoute = ReviewRouteImport.update({
+  id: '/review',
+  path: '/review',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LeadsRoute = LeadsRouteImport.update({
+  id: '/leads',
+  path: '/leads',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EmailRoute = EmailRouteImport.update({
+  id: '/email',
+  path: '/email',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DecisionsRoute = DecisionsRouteImport.update({
+  id: '/decisions',
+  path: '/decisions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommentsRoute = CommentsRouteImport.update({
+  id: '/comments',
+  path: '/comments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AssetsRoute = AssetsRouteImport.update({
+  id: '/assets',
+  path: '/assets',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ArchiveRoute = ArchiveRouteImport.update({
+  id: '/archive',
+  path: '/archive',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AssetsIdRoute = AssetsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AssetsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/archive': typeof ArchiveRoute
+  '/assets': typeof AssetsRouteWithChildren
+  '/comments': typeof CommentsRoute
+  '/decisions': typeof DecisionsRoute
+  '/email': typeof EmailRoute
+  '/leads': typeof LeadsRoute
+  '/review': typeof ReviewRoute
+  '/seo': typeof SeoRoute
+  '/team-actions': typeof TeamActionsRoute
+  '/video': typeof VideoRoute
+  '/website': typeof WebsiteRoute
+  '/assets/$id': typeof AssetsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/archive': typeof ArchiveRoute
+  '/assets': typeof AssetsRouteWithChildren
+  '/comments': typeof CommentsRoute
+  '/decisions': typeof DecisionsRoute
+  '/email': typeof EmailRoute
+  '/leads': typeof LeadsRoute
+  '/review': typeof ReviewRoute
+  '/seo': typeof SeoRoute
+  '/team-actions': typeof TeamActionsRoute
+  '/video': typeof VideoRoute
+  '/website': typeof WebsiteRoute
+  '/assets/$id': typeof AssetsIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/archive': typeof ArchiveRoute
+  '/assets': typeof AssetsRouteWithChildren
+  '/comments': typeof CommentsRoute
+  '/decisions': typeof DecisionsRoute
+  '/email': typeof EmailRoute
+  '/leads': typeof LeadsRoute
+  '/review': typeof ReviewRoute
+  '/seo': typeof SeoRoute
+  '/team-actions': typeof TeamActionsRoute
+  '/video': typeof VideoRoute
+  '/website': typeof WebsiteRoute
+  '/assets/$id': typeof AssetsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/archive'
+    | '/assets'
+    | '/comments'
+    | '/decisions'
+    | '/email'
+    | '/leads'
+    | '/review'
+    | '/seo'
+    | '/team-actions'
+    | '/video'
+    | '/website'
+    | '/assets/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/admin'
+    | '/archive'
+    | '/assets'
+    | '/comments'
+    | '/decisions'
+    | '/email'
+    | '/leads'
+    | '/review'
+    | '/seo'
+    | '/team-actions'
+    | '/video'
+    | '/website'
+    | '/assets/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/archive'
+    | '/assets'
+    | '/comments'
+    | '/decisions'
+    | '/email'
+    | '/leads'
+    | '/review'
+    | '/seo'
+    | '/team-actions'
+    | '/video'
+    | '/website'
+    | '/assets/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
+  ArchiveRoute: typeof ArchiveRoute
+  AssetsRoute: typeof AssetsRouteWithChildren
+  CommentsRoute: typeof CommentsRoute
+  DecisionsRoute: typeof DecisionsRoute
+  EmailRoute: typeof EmailRoute
+  LeadsRoute: typeof LeadsRoute
+  ReviewRoute: typeof ReviewRoute
+  SeoRoute: typeof SeoRoute
+  TeamActionsRoute: typeof TeamActionsRoute
+  VideoRoute: typeof VideoRoute
+  WebsiteRoute: typeof WebsiteRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/website': {
+      id: '/website'
+      path: '/website'
+      fullPath: '/website'
+      preLoaderRoute: typeof WebsiteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/video': {
+      id: '/video'
+      path: '/video'
+      fullPath: '/video'
+      preLoaderRoute: typeof VideoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/team-actions': {
+      id: '/team-actions'
+      path: '/team-actions'
+      fullPath: '/team-actions'
+      preLoaderRoute: typeof TeamActionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/seo': {
+      id: '/seo'
+      path: '/seo'
+      fullPath: '/seo'
+      preLoaderRoute: typeof SeoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/review': {
+      id: '/review'
+      path: '/review'
+      fullPath: '/review'
+      preLoaderRoute: typeof ReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/leads': {
+      id: '/leads'
+      path: '/leads'
+      fullPath: '/leads'
+      preLoaderRoute: typeof LeadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/email': {
+      id: '/email'
+      path: '/email'
+      fullPath: '/email'
+      preLoaderRoute: typeof EmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/decisions': {
+      id: '/decisions'
+      path: '/decisions'
+      fullPath: '/decisions'
+      preLoaderRoute: typeof DecisionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/comments': {
+      id: '/comments'
+      path: '/comments'
+      fullPath: '/comments'
+      preLoaderRoute: typeof CommentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/assets': {
+      id: '/assets'
+      path: '/assets'
+      fullPath: '/assets'
+      preLoaderRoute: typeof AssetsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/archive': {
+      id: '/archive'
+      path: '/archive'
+      fullPath: '/archive'
+      preLoaderRoute: typeof ArchiveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +304,42 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/assets/$id': {
+      id: '/assets/$id'
+      path: '/$id'
+      fullPath: '/assets/$id'
+      preLoaderRoute: typeof AssetsIdRouteImport
+      parentRoute: typeof AssetsRoute
+    }
   }
 }
 
+interface AssetsRouteChildren {
+  AssetsIdRoute: typeof AssetsIdRoute
+}
+
+const AssetsRouteChildren: AssetsRouteChildren = {
+  AssetsIdRoute: AssetsIdRoute,
+}
+
+const AssetsRouteWithChildren =
+  AssetsRoute._addFileChildren(AssetsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
+  ArchiveRoute: ArchiveRoute,
+  AssetsRoute: AssetsRouteWithChildren,
+  CommentsRoute: CommentsRoute,
+  DecisionsRoute: DecisionsRoute,
+  EmailRoute: EmailRoute,
+  LeadsRoute: LeadsRoute,
+  ReviewRoute: ReviewRoute,
+  SeoRoute: SeoRoute,
+  TeamActionsRoute: TeamActionsRoute,
+  VideoRoute: VideoRoute,
+  WebsiteRoute: WebsiteRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
