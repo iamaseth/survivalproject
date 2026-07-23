@@ -17,11 +17,13 @@ import { Route as ReviewRouteImport } from './routes/review'
 import { Route as LeadsRouteImport } from './routes/leads'
 import { Route as EmailRouteImport } from './routes/email'
 import { Route as DecisionsRouteImport } from './routes/decisions'
+import { Route as CreatorsRouteImport } from './routes/creators'
 import { Route as CommentsRouteImport } from './routes/comments'
 import { Route as AssetsRouteImport } from './routes/assets'
 import { Route as ArchiveRouteImport } from './routes/archive'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CreatorsIdRouteImport } from './routes/creators.$id'
 import { Route as AssetsIdRouteImport } from './routes/assets.$id'
 
 const WebsiteRoute = WebsiteRouteImport.update({
@@ -64,6 +66,11 @@ const DecisionsRoute = DecisionsRouteImport.update({
   path: '/decisions',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CreatorsRoute = CreatorsRouteImport.update({
+  id: '/creators',
+  path: '/creators',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CommentsRoute = CommentsRouteImport.update({
   id: '/comments',
   path: '/comments',
@@ -89,6 +96,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CreatorsIdRoute = CreatorsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => CreatorsRoute,
+} as any)
 const AssetsIdRoute = AssetsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -101,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/archive': typeof ArchiveRoute
   '/assets': typeof AssetsRouteWithChildren
   '/comments': typeof CommentsRoute
+  '/creators': typeof CreatorsRouteWithChildren
   '/decisions': typeof DecisionsRoute
   '/email': typeof EmailRoute
   '/leads': typeof LeadsRoute
@@ -110,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/video': typeof VideoRoute
   '/website': typeof WebsiteRoute
   '/assets/$id': typeof AssetsIdRoute
+  '/creators/$id': typeof CreatorsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -117,6 +131,7 @@ export interface FileRoutesByTo {
   '/archive': typeof ArchiveRoute
   '/assets': typeof AssetsRouteWithChildren
   '/comments': typeof CommentsRoute
+  '/creators': typeof CreatorsRouteWithChildren
   '/decisions': typeof DecisionsRoute
   '/email': typeof EmailRoute
   '/leads': typeof LeadsRoute
@@ -126,6 +141,7 @@ export interface FileRoutesByTo {
   '/video': typeof VideoRoute
   '/website': typeof WebsiteRoute
   '/assets/$id': typeof AssetsIdRoute
+  '/creators/$id': typeof CreatorsIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -134,6 +150,7 @@ export interface FileRoutesById {
   '/archive': typeof ArchiveRoute
   '/assets': typeof AssetsRouteWithChildren
   '/comments': typeof CommentsRoute
+  '/creators': typeof CreatorsRouteWithChildren
   '/decisions': typeof DecisionsRoute
   '/email': typeof EmailRoute
   '/leads': typeof LeadsRoute
@@ -143,6 +160,7 @@ export interface FileRoutesById {
   '/video': typeof VideoRoute
   '/website': typeof WebsiteRoute
   '/assets/$id': typeof AssetsIdRoute
+  '/creators/$id': typeof CreatorsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -152,6 +170,7 @@ export interface FileRouteTypes {
     | '/archive'
     | '/assets'
     | '/comments'
+    | '/creators'
     | '/decisions'
     | '/email'
     | '/leads'
@@ -161,6 +180,7 @@ export interface FileRouteTypes {
     | '/video'
     | '/website'
     | '/assets/$id'
+    | '/creators/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -168,6 +188,7 @@ export interface FileRouteTypes {
     | '/archive'
     | '/assets'
     | '/comments'
+    | '/creators'
     | '/decisions'
     | '/email'
     | '/leads'
@@ -177,6 +198,7 @@ export interface FileRouteTypes {
     | '/video'
     | '/website'
     | '/assets/$id'
+    | '/creators/$id'
   id:
     | '__root__'
     | '/'
@@ -184,6 +206,7 @@ export interface FileRouteTypes {
     | '/archive'
     | '/assets'
     | '/comments'
+    | '/creators'
     | '/decisions'
     | '/email'
     | '/leads'
@@ -193,6 +216,7 @@ export interface FileRouteTypes {
     | '/video'
     | '/website'
     | '/assets/$id'
+    | '/creators/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -201,6 +225,7 @@ export interface RootRouteChildren {
   ArchiveRoute: typeof ArchiveRoute
   AssetsRoute: typeof AssetsRouteWithChildren
   CommentsRoute: typeof CommentsRoute
+  CreatorsRoute: typeof CreatorsRouteWithChildren
   DecisionsRoute: typeof DecisionsRoute
   EmailRoute: typeof EmailRoute
   LeadsRoute: typeof LeadsRoute
@@ -269,6 +294,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DecisionsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/creators': {
+      id: '/creators'
+      path: '/creators'
+      fullPath: '/creators'
+      preLoaderRoute: typeof CreatorsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/comments': {
       id: '/comments'
       path: '/comments'
@@ -304,6 +336,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/creators/$id': {
+      id: '/creators/$id'
+      path: '/$id'
+      fullPath: '/creators/$id'
+      preLoaderRoute: typeof CreatorsIdRouteImport
+      parentRoute: typeof CreatorsRoute
+    }
     '/assets/$id': {
       id: '/assets/$id'
       path: '/$id'
@@ -325,12 +364,25 @@ const AssetsRouteChildren: AssetsRouteChildren = {
 const AssetsRouteWithChildren =
   AssetsRoute._addFileChildren(AssetsRouteChildren)
 
+interface CreatorsRouteChildren {
+  CreatorsIdRoute: typeof CreatorsIdRoute
+}
+
+const CreatorsRouteChildren: CreatorsRouteChildren = {
+  CreatorsIdRoute: CreatorsIdRoute,
+}
+
+const CreatorsRouteWithChildren = CreatorsRoute._addFileChildren(
+  CreatorsRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   ArchiveRoute: ArchiveRoute,
   AssetsRoute: AssetsRouteWithChildren,
   CommentsRoute: CommentsRoute,
+  CreatorsRoute: CreatorsRouteWithChildren,
   DecisionsRoute: DecisionsRoute,
   EmailRoute: EmailRoute,
   LeadsRoute: LeadsRoute,
@@ -343,13 +395,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
