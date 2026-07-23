@@ -72,7 +72,7 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
         data: {
           mode,
           creatorName: c.name,
-          creatorHandle: c.username ?? undefined,
+          creatorHandle: c.instagram ?? c.tiktok ?? undefined,
           creatorNiche: c.segment ?? undefined,
           senderFirstName,
           existingDraft: body || undefined,
@@ -97,12 +97,14 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
         },
       });
       // Log to the local workspace + activity timeline so the workflow moves forward.
-      updateWorkspace(c, {
+      updateWorkspace(c.id, {
         outreachStatus: "Sent",
         lastContactDate: new Date().toISOString().slice(0, 10),
         emailDraftCreated: true,
       });
       addActivity(c, {
+        at: new Date().toISOString().slice(0, 10),
+        actor: (auth.status === "authenticated" && auth.profile.teamId) ? auth.profile.teamId : "SYSTEM",
         kind: "email_sent",
         action: `Sent Gmail: "${subject.trim().slice(0, 80)}"`,
         notes: `via ${auth.status === "authenticated" ? auth.profile.email : "connected Gmail"} · label ${labelHint(stage)}`,
