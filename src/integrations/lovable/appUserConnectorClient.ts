@@ -19,8 +19,22 @@ export async function connectAppUser(opts: {
   const gatewayOrigin = new URL(gatewayBaseUrl).origin;
   const targetOrigin = window.location.origin;
 
-  const popup = window.open("", "lovable-oauth", "width=600,height=720");
-  if (!popup) return { success: false, connectorId, error: "Popup blocked. Allow popups and retry." };
+  // Force a real popup window (not an iframe or same-tab navigation). Using
+  // `_blank` avoids re-using any existing frame/window that happens to share a
+  // name, and `popup=1` hints Chromium/Safari to open a detached window so
+  // providers that set X-Frame-Options (Google) don't get framed.
+  const popup = window.open(
+    "about:blank",
+    "_blank",
+    "popup=1,width=600,height=720,noopener=no,noreferrer=no",
+  );
+  if (!popup || popup.closed) {
+    return {
+      success: false,
+      connectorId,
+      error: "Popup blocked. Allow popups for this site and try again.",
+    };
+  }
 
   let authorizationUrl: string;
   try {
