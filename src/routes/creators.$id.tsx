@@ -20,8 +20,20 @@ import {
   type OutreachStatus,
   type DeliveryStatus,
 } from "@/lib/creator-workspace";
+import {
+  computeStage,
+  nextAction,
+  primaryActions,
+  relationshipHealth,
+  healthTone,
+  healthDot,
+  stageTone,
+  daysBetween,
+  timeAgo,
+} from "@/lib/creator-workflow";
 import { PageHeader } from "@/components/PageHeader";
-import { ArrowLeft, ExternalLink, Mail, Copy, Send, Truck, ShieldCheck, Clock, AlertCircle, UserCheck, FileText, ListChecks, StickyNote } from "lucide-react";
+import { ArrowLeft, ExternalLink, Mail, Copy, Send, Truck, ShieldCheck, Clock, AlertCircle, UserCheck, FileText, ListChecks, StickyNote, Compass, Activity as ActivityIcon, Heart, CalendarClock } from "lucide-react";
+
 
 export const Route = createFileRoute("/creators/$id")({
   loader: ({ params }) => {
