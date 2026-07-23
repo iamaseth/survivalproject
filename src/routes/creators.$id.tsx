@@ -681,20 +681,18 @@ function EmailDrafter({ c }: { c: CreatorRow }) {
 }
 
 function Shipping({ c }: { c: CreatorRow }) {
+  const ws = useWorkspace(c);
+  const today = new Date().toISOString().slice(0, 10);
   const stages: { key: string; label: string; done: boolean }[] = [
-    { key: "approval", label: "Perry approves sample", done: c.perryApproval === "Approved" },
-    { key: "await", label: "Awaiting shipping address", done: ["Address Received", "Shipped", "Delivered"].includes(c.normalizedSampleStatus) },
-    { key: "address", label: "Address received", done: ["Address Received", "Shipped", "Delivered"].includes(c.normalizedSampleStatus) },
-    { key: "shipped", label: "Sample shipped", done: ["Shipped", "Delivered"].includes(c.normalizedSampleStatus) },
-    { key: "delivered", label: "Delivered", done: c.normalizedSampleStatus === "Delivered" },
+    { key: "req", label: "Sample required", done: ws.sampleRequired },
+    { key: "address", label: "Address received", done: ws.addressReceived },
+    { key: "shipped", label: "Sample shipped", done: ws.sampleShipped },
+    { key: "delivered", label: "Delivered", done: ws.deliveryStatus === "Delivered" },
   ];
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <Card title="Shipping status">
-        <div className="mb-3">
-          <span className={`inline-flex rounded px-2 py-1 text-sm font-medium ${sampleTone(c.normalizedSampleStatus)}`}>{c.normalizedSampleStatus}</span>
-        </div>
-        <ol className="space-y-2">
+      <Card title="Shipping workflow">
+        <ol className="mb-4 space-y-2">
           {stages.map((s, i) => (
             <li key={s.key} className="flex items-center gap-2 text-sm">
               <span className={`grid h-6 w-6 place-items-center rounded-full text-[11px] ${s.done ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}>{i + 1}</span>
@@ -702,9 +700,44 @@ function Shipping({ c }: { c: CreatorRow }) {
             </li>
           ))}
         </ol>
+        <FieldRow label="Sample required">
+          <Toggle checked={ws.sampleRequired} onChange={(v) => updateWorkspace(c.id, { sampleRequired: v })} />
+        </FieldRow>
+        <FieldRow label="Address received">
+          <Toggle checked={ws.addressReceived} onChange={(v) => updateWorkspace(c.id, { addressReceived: v })} />
+        </FieldRow>
+        <FieldRow label="Sample shipped">
+          <Toggle checked={ws.sampleShipped} onChange={(v) => updateWorkspace(c.id, { sampleShipped: v })} />
+        </FieldRow>
+        <FieldRow label="Tracking number">
+          <input
+            value={ws.trackingNumber ?? ""}
+            onChange={(e) => updateWorkspace(c.id, { trackingNumber: e.target.value || null })}
+            placeholder="1Z…"
+            className="w-full rounded-md border border-input bg-background px-2 py-1 font-mono text-xs"
+          />
+        </FieldRow>
+        <FieldRow label="Delivery status">
+          <select
+            value={ws.deliveryStatus}
+            onChange={(e) => updateWorkspace(c.id, { deliveryStatus: e.target.value as DeliveryStatus })}
+            className="rounded-md border border-input bg-background px-2 py-1 text-sm"
+          >
+            {["Not Shipped", "Preparing", "In Transit", "Delivered", "Returned", "Failed"].map((s) => (
+              <option key={s}>{s}</option>
+            ))}
+          </select>
+        </FieldRow>
+        <button
+          onClick={() => addActivity(c, { at: today, actor: (ws.currentOwner ?? "RENA") as any, kind: "sample_shipped", action: "Sample shipped", notes: ws.trackingNumber ? `Tracking ${ws.trackingNumber}` : undefined })}
+          className="mt-2 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+        >
+          Log "sample shipped"
+        </button>
       </Card>
       <Card title="From master sheet">
         <KV k="Sample status (raw)" v={c.sampleStatus} />
+        <KV k="Perry approval" v={c.perryApproval} />
         <KV k="Recommended offer" v={c.recommendedOffer} />
         <KV k="Partnership tier" v={c.partnershipTier} />
         <KV k="Rena notes" v={c.renaNotes} />
