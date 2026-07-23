@@ -1,8 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { assets, decisions, tasks, users, userById, STATUS_ORDER, priorityTone } from "@/lib/mock-data";
+import { guides } from "@/lib/knowledge-data";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusPill } from "@/components/StatusPill";
-import { ArrowRight, CheckCircle2, Clock } from "lucide-react";
+import { ArrowRight, CheckCircle2, Clock, BookOpen } from "lucide-react";
+
 
 export const Route = createFileRoute("/")({
   component: Dashboard,
@@ -60,6 +62,37 @@ function Dashboard() {
           ))}
         </div>
       </section>
+
+      {/* Knowledge Center */}
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Knowledge Center</h2>
+          <Link to="/knowledge" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+            Open library <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-muted-foreground">
+              <BookOpen className="h-3.5 w-3.5" /> Total Guides
+            </div>
+            <div className="mt-1 font-display text-3xl">{guides.length}</div>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Published</div>
+            <div className="mt-1 font-display text-3xl">{guides.filter((g) => g.status === "Published").length}</div>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">In Progress</div>
+            <div className="mt-1 font-display text-3xl">{guides.filter((g) => g.status !== "Published").length}</div>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Legacy Articles</div>
+            <div className="mt-1 font-display text-3xl">{guides.reduce((n, g) => n + g.legacyArticles.length, 0)}</div>
+          </div>
+        </div>
+      </section>
+
 
       {/* Awaiting Perry + Decisions */}
       <section className="grid gap-6 lg:grid-cols-2">
