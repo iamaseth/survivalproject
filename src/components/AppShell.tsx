@@ -194,6 +194,7 @@ function ProfileMenu({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
