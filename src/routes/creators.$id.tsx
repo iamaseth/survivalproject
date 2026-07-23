@@ -562,11 +562,17 @@ function ContentPanel({ c }: { c: CreatorRow }) {
 
 function ActivityTimeline({ c }: { c: CreatorRow }) {
   const ws = useWorkspace(c);
+  const me = useCurrentTeamMember();
   const [note, setNote] = useState("");
-  const [actor, setActor] = useState<Activity["actor"]>((ws.currentOwner ?? "RENA") as Activity["actor"]);
   const submit = () => {
     if (!note.trim()) return;
-    addActivity(c, { at: new Date().toISOString().slice(0, 10), actor, kind: "note", action: "Note", notes: note.trim() });
+    addActivity(c, {
+      at: new Date().toISOString().slice(0, 10),
+      actor: me.id,
+      kind: "note",
+      action: "Note",
+      notes: note.trim(),
+    });
     setNote("");
   };
   return (
@@ -578,13 +584,24 @@ function ActivityTimeline({ c }: { c: CreatorRow }) {
           <ol className="space-y-3">
             {ws.activity.map((e) => (
               <li key={e.id} className="rounded-md border border-border bg-secondary/40 p-3">
-                <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <span className="rounded bg-card px-1.5 py-0.5 font-medium text-foreground">{e.actor}</span>
+                <div className="mb-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded bg-card px-1.5 py-0.5 font-medium text-foreground">
+                      {e.actorName ?? e.actor}
+                    </span>
+                    {e.actorRoleLabel ? (
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        {e.actorRoleLabel}
+                      </span>
+                    ) : null}
                     <span className="text-foreground">{e.action}</span>
-                    <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] uppercase tracking-wider">{e.kind.replace(/_/g, " ")}</span>
+                    <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] uppercase tracking-wider">
+                      {e.kind.replace(/_/g, " ")}
+                    </span>
                   </div>
-                  <span>{e.at}</span>
+                  <span className="whitespace-nowrap">
+                    {e.at}{e.time ? ` · ${e.time}` : ""}
+                  </span>
                 </div>
                 {e.notes ? <p className="whitespace-pre-wrap text-sm">{e.notes}</p> : null}
               </li>
@@ -593,16 +610,10 @@ function ActivityTimeline({ c }: { c: CreatorRow }) {
         )}
       </Card>
       <Card title="Log a note">
-        <label className="mb-2 block text-[11px] uppercase tracking-wider text-muted-foreground">Team member</label>
-        <select
-          value={actor}
-          onChange={(e) => setActor(e.target.value as Activity["actor"])}
-          className="mb-3 w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm"
-        >
-          {(["SETH", "RENA", "VINA", "PERRY"] as const).map((a) => (
-            <option key={a}>{a}</option>
-          ))}
-        </select>
+        <div className="mb-3 rounded-md border border-border bg-secondary/40 p-2 text-xs">
+          Posting as <span className="font-medium text-foreground">{me.name}</span>
+          <span className="text-muted-foreground"> · {me.title}</span>
+        </div>
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
