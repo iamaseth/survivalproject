@@ -1,14 +1,9 @@
 // Creator Partnerships — operational workspace overlay.
-// Extends CreatorRow (imported from Google Sheet) with editable workflow fields:
-// Assignment, Outreach, Follow-up, Shipping, Content, Internal Notes, Activity Timeline.
-//
-// Persisted in localStorage. Field names & shapes mirror what will become Supabase
-// tables so we can swap the store later without touching the UI.
 import { useSyncExternalStore } from "react";
 import { CREATORS, type CreatorRow, type OutreachOwner } from "./creator-partnerships";
 import { getTestMode } from "./test-mode";
 
-// ---------- Types (future Supabase schema) ----------
+// ---------- Types ----------
 export type OutreachStatus =
   | "Not Started"
   | "Draft Ready"
@@ -39,24 +34,22 @@ export type ActivityKind =
 
 export interface Activity {
   id: string;
-  at: string; // ISO date  (yyyy-mm-dd)
-  time?: string; // HH:mm — populated for real-time entries
+  at: string;
+  time?: string;
   actor: "SETH" | "RENA" | "VINA" | "PERRY" | "SYSTEM";
-  actorName?: string;        // "Vina Nguyen"
-  actorRoleLabel?: string;   // "Partnership Coordinator"
+  actorName?: string;
+  actorRoleLabel?: string;
   actorEmail?: string;
   kind: ActivityKind;
-  action: string; // short label
+  action: string;
   notes?: string;
-  // Test-mode tagging — set automatically by addActivity when Test Mode is on.
   isTest?: boolean;
   testSessionId?: string | null;
+  // Confirmed Gmail message metadata (set only when a real send succeeds).
+  gmailMessageId?: string;
+  gmailThreadId?: string;
 }
 
-// ---------- Current actor injection ----------
-// AppShell pushes the signed-in user here after Google auth resolves so the
-// workspace store can auto-populate created_by / last_modified_by / activity
-// author fields without every call-site knowing about auth.
 export interface CurrentActor {
   id: "SETH" | "RENA" | "VINA" | "PERRY";
   name: string;
@@ -73,63 +66,62 @@ function nowTime() {
 }
 
 export interface CreatorWorkspace {
-  // Assignment
-  assignedTo: OutreachOwner; // Rena | Vina | null
+  assignedTo: OutreachOwner;
   assignedDate: string | null;
   currentOwner: OutreachOwner;
 
-  // Outreach
   outreachStatus: OutreachStatus;
-  contactMethod: string | null; // Email / DM / Call
+  contactMethod: string | null;
   emailDraftCreated: boolean;
   emailSent: boolean;
   dateSent: string | null;
   lastContactDate: string | null;
 
-  // Follow-up
   nextFollowUpDate: string | null;
   followUpCount: number;
   waitingForReply: boolean;
   noResponse: boolean;
   responded: boolean;
 
-  // Shipping
+  // Confirmed Gmail send tracking — set only after Gmail API returns success.
+  gmailMessageId: string | null;
+  gmailThreadId: string | null;
+  gmailConfirmedAt: string | null;
+
   sampleRequired: boolean;
   addressReceived: boolean;
   sampleShipped: boolean;
   trackingNumber: string | null;
   deliveryStatus: DeliveryStatus;
 
-  // Content
   contentPromised: string | null;
   contentReceived: boolean;
-  publishedPlatforms: string[]; // e.g. ["Instagram","YouTube"]
+  publishedPlatforms: string[];
   publishDate: string | null;
 
-  // Internal notes
   teamNotes: string | null;
   aiRecommendation: string | null;
   researchNotes: string | null;
-  executiveNotes: string | null; // Perry
+  executiveNotes: string | null;
 
-  // Ownership (auto-populated from the signed-in user)
-  createdBy?: string | null;         // display name
+  createdBy?: string | null;
   createdByRole?: string | null;
-  createdAt?: string | null;         // ISO date
+  createdAt?: string | null;
   lastModifiedBy?: string | null;
   lastModifiedByRole?: string | null;
-  lastModifiedAt?: string | null;    // ISO datetime
+  lastModifiedAt?: string | null;
   lastActivityBy?: string | null;
-  supervisor?: string | null;        // Rena for coordinators, Perry for managers
+  supervisor?: string | null;
 
-  // Activity timeline
+  doNotContact?: boolean;
   activity: Activity[];
 }
 
-// ---------- Defaults derived from existing sheet row ----------
 export function defaultsFor(c: CreatorRow): CreatorWorkspace {
   const responded = c.responseState.startsWith("Replied");
-  const waiting = !!c.contactedDate && !responded && c.responseState !== "Bounced";
+  // NOTE: seed-derived waitingForReply is intentionally FALSE here.
+  // The unified selector `isWaitingForReply(c, w)` requires a confirmed Gmail
+  // send id — the seed has none — so seed data alone never counts as waiting.
   const noResp = !!c.contactedDate && c.responseState === "No Response";
 
   let outreachStatus: OutreachStatus = "Not Started";
@@ -145,12 +137,8 @@ export function defaultsFor(c: CreatorRow): CreatorWorkspace {
   const activity: Activity[] = [];
   if (c.lastResearched) {
     activity.push({
-      id: `${c.id}-a-res`,
-      at: c.lastResearched,
-      actor: "SETH",
-      kind: "researched",
-      action: "Creator researched",
-      notes: c.researchNotes ?? undefined,
+      id: `${c.id}-a-res`, at: c.lastResearched, actor: "SETH",
+      kind: "researched", action: "Creator researched", notes: c.researchNotes ?? undefined,
     });
   }
   if (c.outreachOwner) {
@@ -164,31 +152,23 @@ export function defaultsFor(c: CreatorRow): CreatorWorkspace {
   }
   if (c.contactedDate) {
     activity.push({
-      id: `${c.id}-a-sent`,
-      at: c.contactedDate,
+      id: `${c.id}-a-sent`, at: c.contactedDate,
       actor: (c.outreachOwner ?? "RENA") as "RENA" | "VINA",
-      kind: "email_sent",
-      action: "Outreach email sent",
+      kind: "email_sent", action: "Outreach email sent (historical, from spreadsheet)",
       notes: c.contactMethod ?? undefined,
     });
   }
   if (responded) {
     activity.push({
-      id: `${c.id}-a-rep`,
-      at: c.contactedDate ?? new Date().toISOString().slice(0, 10),
+      id: `${c.id}-a-rep`, at: c.contactedDate ?? new Date().toISOString().slice(0, 10),
       actor: (c.outreachOwner ?? "RENA") as "RENA" | "VINA",
-      kind: "creator_replied",
-      action: "Creator replied",
-      notes: c.responseFollowup ?? undefined,
+      kind: "creator_replied", action: "Creator replied", notes: c.responseFollowup ?? undefined,
     });
   }
   if (c.normalizedSampleStatus === "Shipped" || c.normalizedSampleStatus === "Delivered") {
     activity.push({
-      id: `${c.id}-a-ship`,
-      at: c.contactedDate ?? new Date().toISOString().slice(0, 10),
-      actor: "RENA",
-      kind: "sample_shipped",
-      action: "Sample shipped",
+      id: `${c.id}-a-ship`, at: c.contactedDate ?? new Date().toISOString().slice(0, 10),
+      actor: "RENA", kind: "sample_shipped", action: "Sample shipped",
     });
   }
 
@@ -206,9 +186,13 @@ export function defaultsFor(c: CreatorRow): CreatorWorkspace {
 
     nextFollowUpDate: c.nextFollowUpDate,
     followUpCount: 0,
-    waitingForReply: waiting,
+    waitingForReply: false,
     noResponse: noResp,
     responded,
+
+    gmailMessageId: null,
+    gmailThreadId: null,
+    gmailConfirmedAt: null,
 
     sampleRequired: c.normalizedSampleStatus !== "Not Sent",
     addressReceived: ["Address Received", "Shipped", "Delivered"].includes(c.normalizedSampleStatus),
@@ -226,13 +210,13 @@ export function defaultsFor(c: CreatorRow): CreatorWorkspace {
     researchNotes: c.researchNotes,
     executiveNotes: c.perryComments,
 
+    doNotContact: false,
     activity: activity.sort((a, b) => a.at.localeCompare(b.at)),
   };
 }
 
-// ---------- Store (localStorage-backed, reactive) ----------
+// ---------- Store ----------
 const LS_KEY = "st.creator-workspace.v1";
-
 type Overrides = Partial<CreatorWorkspace>;
 type StoreShape = Record<string, Overrides>;
 
@@ -241,9 +225,7 @@ function readLS(): StoreShape {
   try {
     const raw = window.localStorage.getItem(LS_KEY);
     return raw ? (JSON.parse(raw) as StoreShape) : {};
-  } catch {
-    return {};
-  }
+  } catch { return {}; }
 }
 
 let cache: StoreShape = readLS();
@@ -251,27 +233,13 @@ const listeners = new Set<() => void>();
 
 function emit() {
   if (typeof window !== "undefined") {
-    try {
-      window.localStorage.setItem(LS_KEY, JSON.stringify(cache));
-    } catch {
-      /* ignore quota */
-    }
+    try { window.localStorage.setItem(LS_KEY, JSON.stringify(cache)); } catch { /* ignore */ }
   }
   listeners.forEach((l) => l());
 }
-
-function subscribe(fn: () => void) {
-  listeners.add(fn);
-  return () => listeners.delete(fn);
-}
-
-function snapshot() {
-  return cache;
-}
-
-function serverSnapshot(): StoreShape {
-  return {};
-}
+function subscribe(fn: () => void) { listeners.add(fn); return () => listeners.delete(fn); }
+function snapshot() { return cache; }
+function serverSnapshot(): StoreShape { return {}; }
 
 export function getWorkspace(c: CreatorRow): CreatorWorkspace {
   const base = defaultsFor(c);
@@ -325,8 +293,10 @@ export function addActivity(c: CreatorRow, ev: Omit<Activity, "id">) {
     { ...enriched, id: `${c.id}-a-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` },
   ];
   updateWorkspace(c.id, { activity: nextExtra, lastActivityBy: enriched.actorName ?? ev.actor });
-  // touch derived counts too
-  if (ev.kind === "email_sent") {
+
+  // IMPORTANT: 'email_sent' from manual logging no longer flips waitingForReply.
+  // Only `logConfirmedGmailSend` (called with a real Gmail message id) does.
+  if (ev.kind === "email_sent" && ev.gmailMessageId) {
     updateWorkspace(c.id, {
       emailSent: true,
       emailDraftCreated: true,
@@ -335,6 +305,19 @@ export function addActivity(c: CreatorRow, ev: Omit<Activity, "id">) {
       outreachStatus: "Sent",
       waitingForReply: true,
       responded: false,
+      gmailMessageId: ev.gmailMessageId,
+      gmailThreadId: ev.gmailThreadId ?? null,
+      gmailConfirmedAt: new Date().toISOString(),
+    });
+  } else if (ev.kind === "email_sent") {
+    // Manual log without a confirmed Gmail id — record contact but do NOT
+    // claim we're waiting for a reply (there's no message id to tie it to).
+    updateWorkspace(c.id, {
+      emailSent: true,
+      emailDraftCreated: true,
+      dateSent: ev.at,
+      lastContactDate: ev.at,
+      outreachStatus: "Sent",
     });
   } else if (ev.kind === "followup_sent") {
     const cur = getWorkspace(c);
@@ -342,7 +325,6 @@ export function addActivity(c: CreatorRow, ev: Omit<Activity, "id">) {
       followUpCount: cur.followUpCount + 1,
       lastContactDate: ev.at,
       outreachStatus: "Follow-up Sent",
-      waitingForReply: true,
     });
   } else if (ev.kind === "creator_replied") {
     updateWorkspace(c.id, {
@@ -354,33 +336,85 @@ export function addActivity(c: CreatorRow, ev: Omit<Activity, "id">) {
   } else if (ev.kind === "sample_shipped") {
     updateWorkspace(c.id, { sampleShipped: true, deliveryStatus: "In Transit" });
   }
-  // suppress unused base
   void base;
 }
 
-// ---------- Reset / backup helpers (Settings → Data Management) ----------
+/**
+ * Called ONLY after Gmail returns a confirmed successful send response.
+ * This is the single source of truth for flipping `waitingForReply` on.
+ */
+export function logConfirmedGmailSend(
+  c: CreatorRow,
+  args: {
+    messageId: string;
+    threadId: string;
+    subject: string;
+    at?: string;
+    actor?: "RENA" | "VINA" | "SETH" | "PERRY";
+    followUpInDays?: number;
+    stageLabel?: string;
+  },
+) {
+  const today = args.at ?? new Date().toISOString().slice(0, 10);
+  const ws = getWorkspace(c);
+  const actor = (args.actor ?? ws.currentOwner ?? "RENA") as "RENA" | "VINA" | "SETH" | "PERRY";
+  const followDays = args.followUpInDays ?? 5;
+  const nextFollow = (() => {
+    const d = new Date(today);
+    d.setDate(d.getDate() + followDays);
+    return d.toISOString().slice(0, 10);
+  })();
+  addActivity(c, {
+    at: today,
+    actor,
+    kind: "email_sent",
+    action: `Sent Gmail: "${args.subject.slice(0, 80)}"`,
+    notes: args.stageLabel ? `Gmail label: ${args.stageLabel}` : undefined,
+    gmailMessageId: args.messageId,
+    gmailThreadId: args.threadId,
+  });
+  updateWorkspace(c.id, { nextFollowUpDate: nextFollow });
+}
 
-/** Full snapshot of every override — used to build the pre-reset JSON backup. */
+// ---------- Shared Waiting-for-Reply selector (single source of truth) ----------
+/**
+ * A creator counts as "Waiting for Reply" only when ALL are true:
+ *  - a confirmed Gmail send exists (gmailMessageId is set)
+ *  - workspace flag waitingForReply is true
+ *  - the creator hasn't replied
+ *  - Perry hasn't declined
+ *  - relationship isn't marked do-not-contact
+ *  - workflow isn't completed (published content / active partnership)
+ *  - delivery hasn't failed
+ */
+export function isWaitingForReply(c: CreatorRow, w: CreatorWorkspace): boolean {
+  if (!w.gmailMessageId) return false;
+  if (!w.emailSent) return false;
+  if (!w.waitingForReply) return false;
+  if (w.responded) return false;
+  if (c.perryApproval === "Declined") return false;
+  if (w.doNotContact) return false;
+  if (w.publishDate || w.contentReceived) return false;
+  if (w.deliveryStatus === "Failed") return false;
+  return true;
+}
+
+export function waitingForReplyCreators(): CreatorRow[] {
+  return CREATORS.filter((c) => isWaitingForReply(c, getWorkspace(c)));
+}
+
+// ---------- Reset / backup helpers ----------
 export function exportWorkspaceSnapshot(): StoreShape {
   return JSON.parse(JSON.stringify(cache)) as StoreShape;
 }
-
-/** True if the creator id looks like a placeholder test creator (TEST-… or "TEST –" prefix). */
 export function isTestCreatorId(id: string, name?: string): boolean {
   if (id.startsWith("TEST-")) return true;
   if (name && /^TEST\s*[–-]/i.test(name)) return true;
   return false;
 }
-
-/** Number of creators with a persisted override row. */
-export function workspaceOverrideCount(): number {
-  return Object.keys(cache).length;
-}
-
-/** Number of activities across all overrides. Splits test / non-test if a session id is provided. */
+export function workspaceOverrideCount(): number { return Object.keys(cache).length; }
 export function workspaceActivityCounts(sessionId?: string | null): { total: number; test: number } {
-  let total = 0;
-  let test = 0;
+  let total = 0, test = 0;
   for (const k of Object.keys(cache)) {
     const acts = cache[k].activity ?? [];
     total += acts.length;
@@ -390,29 +424,13 @@ export function workspaceActivityCounts(sessionId?: string | null): { total: num
   }
   return { total, test };
 }
-
-/** Reset every operational override, restoring all creators to their imported values. */
-export function clearAllWorkspace() {
-  cache = {};
-  emit();
-}
-
-/** Remove overrides for a set of creator ids (used by "Delete Test Creators"). */
+export function clearAllWorkspace() { cache = {}; emit(); }
 export function clearWorkspaceForIds(ids: string[]) {
   const set = new Set(ids);
   const next: StoreShape = {};
-  for (const k of Object.keys(cache)) {
-    if (!set.has(k)) next[k] = cache[k];
-  }
-  cache = next;
-  emit();
+  for (const k of Object.keys(cache)) if (!set.has(k)) next[k] = cache[k];
+  cache = next; emit();
 }
-
-/**
- * Strip out only the activities tagged with a given test session id
- * (or every isTest=true row if no id given). Preserves the underlying overrides
- * so real work done during testing keeps its non-test entries.
- */
 export function clearTestActivities(sessionId?: string | null): number {
   let removed = 0;
   const next: StoreShape = {};
@@ -426,32 +444,81 @@ export function clearTestActivities(sessionId?: string | null): number {
     });
     next[k] = { ...ov, activity: kept };
   }
-  cache = next;
-  emit();
+  cache = next; emit();
   return removed;
 }
 
-// ---------- Dashboard derivations ----------
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+// ---------- Reconciliation for stale waiting-for-reply overrides ----------
+export interface ReconcilePreview {
+  scanned: number;
+  staleOverrides: Array<{ id: string; name?: string; reason: string }>;
+  waitingWithConfirmedSend: number;
 }
+
+export function previewReconcileWaitingForReply(): ReconcilePreview {
+  const preview: ReconcilePreview = { scanned: 0, staleOverrides: [], waitingWithConfirmedSend: 0 };
+  for (const c of CREATORS) {
+    const ov = cache[c.id];
+    if (!ov) continue;
+    preview.scanned++;
+    const merged = getWorkspace(c);
+    const claimsWaiting =
+      ov.waitingForReply === true || ov.emailSent === true || ov.outreachStatus === "Sent";
+    if (claimsWaiting && !ov.gmailMessageId) {
+      preview.staleOverrides.push({
+        id: c.id,
+        name: c.name,
+        reason: "Claims sent/waiting but no confirmed Gmail message id",
+      });
+    } else if (isWaitingForReply(c, merged)) {
+      preview.waitingWithConfirmedSend++;
+    }
+  }
+  return preview;
+}
+
+/**
+ * Remove stale waiting-for-reply state from localStorage overrides that
+ * cannot be tied to a confirmed Gmail message id. Preserves creator research
+ * data — this only touches operational workflow fields on the overlay.
+ */
+export function reconcileWaitingForReply(): { corrected: number; kept: number } {
+  let corrected = 0, kept = 0;
+  const next: StoreShape = {};
+  for (const [id, ov] of Object.entries(cache)) {
+    const cloned: Overrides = { ...ov };
+    const claimsWaiting =
+      cloned.waitingForReply === true || cloned.emailSent === true || cloned.outreachStatus === "Sent";
+    if (claimsWaiting && !cloned.gmailMessageId) {
+      cloned.waitingForReply = false;
+      cloned.emailSent = false;
+      cloned.dateSent = null;
+      cloned.lastContactDate = null;
+      cloned.outreachStatus = "Not Started";
+      corrected++;
+    } else if (cloned.waitingForReply && cloned.gmailMessageId) {
+      kept++;
+    }
+    next[id] = cloned;
+  }
+  cache = next; emit();
+  return { corrected, kept };
+}
+
+// ---------- Dashboard derivations ----------
+function todayISO() { return new Date().toISOString().slice(0, 10); }
 
 export function dashboardCounts() {
   const today = todayISO();
-  let readyForOutreach = 0;
-  let rena = 0;
-  let vina = 0;
-  let waiting = 0;
-  let followUpDueToday = 0;
-  let samplePending = 0;
-  let activePartnerships = 0;
+  let readyForOutreach = 0, rena = 0, vina = 0, waiting = 0;
+  let followUpDueToday = 0, samplePending = 0, activePartnerships = 0;
 
   for (const c of CREATORS) {
     const w = getWorkspace(c);
     if (!w.emailSent && w.assignedTo && c.perryApproval !== "Declined") readyForOutreach++;
     if (w.assignedTo === "RENA") rena++;
     if (w.assignedTo === "VINA") vina++;
-    if (w.waitingForReply) waiting++;
+    if (isWaitingForReply(c, w)) waiting++;
     if (w.nextFollowUpDate && w.nextFollowUpDate <= today && !w.responded) followUpDueToday++;
     if (w.sampleRequired && !["Delivered", "Returned", "Failed"].includes(w.deliveryStatus)) samplePending++;
     if (w.responded && (w.sampleShipped || w.contentReceived || w.publishedPlatforms.length > 0)) activePartnerships++;

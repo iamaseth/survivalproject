@@ -18,7 +18,9 @@ import {
 import {
   clearAllWorkspace, clearTestActivities, clearWorkspaceForIds,
   exportWorkspaceSnapshot, isTestCreatorId, workspaceActivityCounts, workspaceOverrideCount,
+  previewReconcileWaitingForReply, reconcileWaitingForReply,
 } from "@/lib/creator-workspace";
+import { listGmailSendErrors, getGmailConnectionStatus as getGmailStatus } from "@/lib/gmail.functions";
 import { CREATORS } from "@/lib/creator-partnerships";
 import { enableTestMode, disableTestMode, useTestMode } from "@/lib/test-mode";
 
@@ -60,7 +62,7 @@ function GmailSection() {
   const [connState, setConnState] = useState<
     | { kind: "loading" }
     | { kind: "disconnected" }
-    | { kind: "connected"; email: string | null; lastPolledAt: string | null }
+    | { kind: "connected"; email: string | null; lastPolledAt: string | null; needsReconnect: boolean; lastErrorStatus: number | null; lastErrorReason: string | null }
   >({ kind: "loading" });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -69,7 +71,14 @@ function GmailSection() {
   const refresh = useCallback(async () => {
     try {
       const s = await status();
-      if (s.connected) setConnState({ kind: "connected", email: s.emailAddress, lastPolledAt: s.lastPolledAt });
+      if (s.connected) setConnState({
+        kind: "connected",
+        email: s.emailAddress,
+        lastPolledAt: s.lastPolledAt,
+        needsReconnect: !!s.needsReconnect,
+        lastErrorStatus: s.lastErrorStatus ?? null,
+        lastErrorReason: s.lastErrorReason ?? null,
+      });
       else setConnState({ kind: "disconnected" });
     } catch (e) {
       setConnState({ kind: "disconnected" });
@@ -129,6 +138,19 @@ function GmailSection() {
                 <CheckCircle2 className="h-4 w-4" />
                 Connected{connState.email ? ` as ${connState.email}` : ""}
               </div>
+              {connState.needsReconnect ? (
+                <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-900">
+                  <div className="flex items-center gap-1.5 font-medium"><ShieldAlert className="h-3.5 w-3.5" /> Reconnect required</div>
+                  <div className="mt-1">Gmail returned {connState.lastErrorStatus ?? "an error"}: {connState.lastErrorReason ?? "authorization failed"}. Sending and reply syncing are paused until you reconnect.</div>
+                  <button
+                    onClick={onConnect}
+                    disabled={busy}
+                    className="mt-2 inline-flex items-center gap-2 rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
+                  >
+                    {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />} Reconnect Gmail
+                  </button>
+                </div>
+              ) : null}
               {connState.lastPolledAt ? (
                 <div className="text-xs text-muted-foreground">
                   Last checked for replies: {new Date(connState.lastPolledAt).toLocaleString()}
@@ -423,6 +445,9 @@ function DataManagementSection() {
               — you stay signed in and don't need to reconnect.
             </div>
           </div>
+
+          <GmailOpsSubsection />
+
 
           {/* Options */}
           <div className="mt-5 space-y-3">
@@ -737,4 +762,141 @@ function describeAffect(
       "Knowledge Center content",
     ],
   };
+}
+
+/* ---------------- Gmail Ops (Exec only) ---------------- */
+function GmailOpsSubsection() {
+  const listErrors = useServerFn(listGmailSendErrors);
+  const getStatus = useServerFn(getGmailStatus);
+  const [errs, setErrs] = useState<Array<{
+    id: string; created_at: string; creator_id: string | null;
+    http_status: number | null; error_reason: string | null; subject: string | null; recipient: string | null;
+  }>>([]);
+  const [poll, setPoll] = useState<{ lastPolledAt: string | null; lastErrorStatus: number | null; lastErrorReason: string | null; needsReconnect: boolean } | null>(null);
+  const [recon, setRecon] = useState<ReturnType<typeof previewReconcileWaitingForReply> | null>(null);
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [e, s] = await Promise.all([listErrors(), getStatus()]);
+        setErrs(e.rows as typeof errs);
+        if (s.connected) {
+          setPoll({
+            lastPolledAt: s.lastPolledAt ?? null,
+            lastErrorStatus: s.lastErrorStatus ?? null,
+            lastErrorReason: s.lastErrorReason ?? null,
+            needsReconnect: !!s.needsReconnect,
+          });
+        } else {
+          setPoll(null);
+        }
+      } catch { /* ignore */ }
+      setRecon(previewReconcileWaitingForReply());
+    })();
+  }, [listErrors, getStatus, tick]);
+
+  const runRecon = () => {
+    const result = reconcileWaitingForReply();
+    setTick((n) => n + 1);
+    // eslint-disable-next-line no-alert
+    alert(`Reconciled ${result.corrected} stale "Waiting for Reply" override${result.corrected === 1 ? "" : "s"}.`);
+  };
+
+  return (
+    <div className="mt-6 space-y-4 rounded-lg border border-border bg-background p-4">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-medium">Gmail sync health & reconciliation</h3>
+        <button onClick={() => setTick((n) => n + 1)} className="text-xs text-muted-foreground hover:text-foreground">Refresh</button>
+      </div>
+
+      {/* Poll status */}
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div className="rounded-md border border-border bg-card p-3 text-xs">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Last reply poll</div>
+          <div className="mt-1 font-medium">{poll?.lastPolledAt ? new Date(poll.lastPolledAt).toLocaleString() : "—"}</div>
+        </div>
+        <div className="rounded-md border border-border bg-card p-3 text-xs">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Poll status</div>
+          <div className={`mt-1 font-medium ${poll?.needsReconnect ? "text-red-700" : poll?.lastErrorStatus ? "text-amber-700" : "text-emerald-700"}`}>
+            {poll?.needsReconnect ? "Reconnect required" : poll?.lastErrorStatus ? `Last error ${poll.lastErrorStatus}` : "Healthy"}
+          </div>
+          {poll?.lastErrorReason ? <div className="mt-0.5 text-[11px] text-muted-foreground">{poll.lastErrorReason}</div> : null}
+        </div>
+        <div className="rounded-md border border-border bg-card p-3 text-xs">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Send failures (30d)</div>
+          <div className="mt-1 font-medium">{errs.length}</div>
+        </div>
+      </div>
+
+      {/* Reconciliation */}
+      <div className="rounded-md border border-border bg-card p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-sm font-medium">Reconcile "Waiting for Reply" overrides</div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              A creator only counts as Waiting for Reply when a confirmed Gmail send exists (message id captured).
+              Legacy overrides without a captured message id will be cleared so dashboard and queue agree.
+            </p>
+            {recon ? (
+              <div className="mt-2 text-xs">
+                <span className="font-medium">{recon.staleOverrides.length}</span> stale override{recon.staleOverrides.length === 1 ? "" : "s"} found
+                {recon.staleOverrides.length > 0 ? (
+                  <ul className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
+                    {recon.staleOverrides.slice(0, 6).map((s) => (
+                      <li key={s.id}>· {s.name} <span className="opacity-60">({s.id})</span></li>
+                    ))}
+                    {recon.staleOverrides.length > 6 ? <li>· …and {recon.staleOverrides.length - 6} more</li> : null}
+                  </ul>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+          <button
+            onClick={runRecon}
+            disabled={!recon || recon.staleOverrides.length === 0}
+            className="shrink-0 rounded-md bg-[color:var(--forest)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-95 disabled:opacity-50"
+          >
+            Reconcile
+          </button>
+        </div>
+      </div>
+
+      {/* Send error log */}
+      {errs.length > 0 ? (
+        <div className="rounded-md border border-border">
+          <div className="border-b border-border bg-secondary px-3 py-2 text-[11px] uppercase tracking-wide text-muted-foreground">
+            Recent Gmail send failures
+          </div>
+          <div className="max-h-64 overflow-y-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-secondary/50 text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2">When</th>
+                  <th className="px-3 py-2">Creator</th>
+                  <th className="px-3 py-2">To</th>
+                  <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2">Reason</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {errs.slice(0, 25).map((e) => {
+                  const name = e.creator_id ? (CREATORS.find((c) => c.id === e.creator_id)?.name ?? e.creator_id) : "—";
+                  return (
+                    <tr key={e.id}>
+                      <td className="px-3 py-2 text-muted-foreground">{new Date(e.created_at).toLocaleString()}</td>
+                      <td className="px-3 py-2">{name}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{e.recipient ?? "—"}</td>
+                      <td className="px-3 py-2 font-mono">{e.http_status ?? "—"}</td>
+                      <td className="px-3 py-2 text-red-800">{e.error_reason ?? "—"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
 }

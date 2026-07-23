@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
-import { Loader2, Mail, MailCheck, Send, Sparkles, RefreshCw, AlertCircle, MailX } from "lucide-react";
+import { toast } from "sonner";
+import { Loader2, Mail, MailCheck, Send, Sparkles, RefreshCw, AlertCircle, MailX, ShieldAlert } from "lucide-react";
 import type { CreatorRow } from "@/lib/creator-partnerships";
-import { useWorkspace, addActivity, updateWorkspace } from "@/lib/creator-workspace";
+import { useWorkspace, logConfirmedGmailSend } from "@/lib/creator-workspace";
 import { computeStage } from "@/lib/creator-workflow";
 import { useAuth } from "@/lib/current-user";
 import {
@@ -30,6 +31,11 @@ type Msg = {
   sent_at: string | null; label_ids: string[];
 };
 
+type ConnStatus =
+  | { kind: "loading" }
+  | { kind: "disconnected" }
+  | { kind: "connected"; needsReconnect: boolean; email: string | null; lastErrorReason: string | null; lastErrorStatus: number | null };
+
 export function GmailPanel({ c }: { c: CreatorRow }) {
   const auth = useAuth();
   const ws = useWorkspace(c);
@@ -41,7 +47,7 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
   const list = useServerFn(listCreatorMessages);
   const poll = useServerFn(pollGmailForReplies);
 
-  const [connected, setConnected] = useState<boolean | null>(null);
+  const [conn, setConn] = useState<ConnStatus>({ kind: "loading" });
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [mode, setMode] = useState<DraftMode>("Initial Outreach");
@@ -50,11 +56,18 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [pollErr, setPollErr] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const [s, r] = await Promise.all([status(), list({ data: { creatorId: c.id } })]);
-    setConnected(s.connected);
+    if (!s.connected) setConn({ kind: "disconnected" });
+    else setConn({
+      kind: "connected",
+      needsReconnect: s.needsReconnect,
+      email: s.emailAddress,
+      lastErrorReason: s.lastErrorReason ?? null,
+      lastErrorStatus: s.lastErrorStatus ?? null,
+    });
     setMsgs(r.messages as Msg[]);
     setLoading(false);
   }, [c.id, list, status]);
@@ -70,60 +83,96 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
     try {
       const r = await draft({
         data: {
-          mode,
-          creatorName: c.name,
+          mode, creatorName: c.name,
           creatorHandle: c.instagram ?? c.tiktok ?? undefined,
           creatorNiche: c.segment ?? undefined,
-          senderFirstName,
-          existingDraft: body || undefined,
+          senderFirstName, existingDraft: body || undefined,
         },
       });
       if (r.subject) setSubject(r.subject);
       setBody(r.body);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+      const m = e instanceof Error ? e.message : String(e);
+      setErr(m); toast.error("Draft failed", { description: m });
     } finally { setDrafting(false); }
   };
 
   const onSend = async () => {
-    if (!c.email) { setErr("This creator has no email address on file."); return; }
-    if (!subject.trim() || !body.trim()) { setErr("Subject and body are required."); return; }
+    if (!c.email) {
+      const m = "This creator has no email address on file.";
+      setErr(m); toast.error(m); return;
+    }
+    if (!subject.trim() || !body.trim()) {
+      const m = "Subject and body are required.";
+      setErr(m); toast.error(m); return;
+    }
     setErr(null); setSending(true);
+    const stageLabel = labelHint(stage);
     try {
-      await send({
+      const res = await send({
         data: {
           creatorId: c.id, creatorEmail: c.email, creatorName: c.name,
           subject: subject.trim(), body: body.trim(), stage,
         },
       });
-      // Log to the local workspace + activity timeline so the workflow moves forward.
-      updateWorkspace(c.id, {
-        outreachStatus: "Sent",
-        lastContactDate: new Date().toISOString().slice(0, 10),
-        emailDraftCreated: true,
+      if (!res.ok) {
+        // Gmail reported failure — do NOT mark waiting-for-reply.
+        const summary = res.needsReconnect
+          ? `Gmail rejected the send (${res.status}). Reconnect Gmail to fix.`
+          : `Gmail send failed (${res.status}).`;
+        setErr(`${summary} ${res.reason}`);
+        toast.error("Send failed", { description: `${summary} ${res.reason}` });
+        await refresh();
+        return;
+      }
+      // Confirmed send — this is the ONLY path that flips waitingForReply.
+      logConfirmedGmailSend(c, {
+        messageId: res.messageId,
+        threadId: res.threadId,
+        subject: subject.trim(),
+        stageLabel,
+        actor: (auth.status === "authenticated" && auth.profile.teamId) ? auth.profile.teamId : undefined,
       });
-      addActivity(c, {
-        at: new Date().toISOString().slice(0, 10),
-        actor: (auth.status === "authenticated" && auth.profile.teamId) ? auth.profile.teamId : "SYSTEM",
-        kind: "email_sent",
-        action: `Sent Gmail: "${subject.trim().slice(0, 80)}"`,
-        notes: `via ${auth.status === "authenticated" ? auth.profile.email : "connected Gmail"} · label ${labelHint(stage)}`,
+      toast.success("Email sent", {
+        description: `To ${c.name} · ${c.email} · Gmail id ${res.messageId.slice(0, 8)}…`,
       });
-      setNotice("Sent from your Gmail. It's in your Sent folder and the creator timeline is updated.");
       setSubject(""); setBody("");
       await refresh();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+      const m = e instanceof Error ? e.message : String(e);
+      setErr(m); toast.error("Send failed", { description: m });
     } finally { setSending(false); }
   };
 
   const onCheckReplies = async () => {
-    try { await poll(); await refresh(); }
-    catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+    setPollErr(null);
+    try {
+      const r = await poll();
+      if ("polled" in r && !r.polled) {
+        const reason = ("errorReason" in r ? r.errorReason : undefined) ?? r.reason;
+        setPollErr(`Gmail reply check failed (${"status" in r ? r.status : "?"}): ${reason}`);
+        toast.error("Reply sync failed", { description: reason });
+      } else if (r.polled) {
+        toast.success(`Checked Gmail`, { description: `${r.stored} new message${r.stored === 1 ? "" : "s"} stored` });
+      }
+      await refresh();
+    } catch (e) {
+      const m = e instanceof Error ? e.message : String(e);
+      setPollErr(m); toast.error("Reply sync failed", { description: m });
+    }
   };
+
+  const isConnected = conn.kind === "connected";
+  const needsReconnect = conn.kind === "connected" && conn.needsReconnect;
 
   return (
     <div className="space-y-6">
+      {conn.kind === "disconnected" ? (
+        <ConnectBanner />
+      ) : needsReconnect ? (
+        <ReconnectBanner reason={conn.lastErrorReason} status={conn.lastErrorStatus} />
+      ) : null}
+
       <section className="rounded-xl border border-border bg-card p-5">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
@@ -135,18 +184,13 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
               <div className="mt-0.5 text-xs text-red-600">No email address on this creator's record.</div>
             )}
           </div>
-          {connected === false ? (
-            <Link to="/settings" className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-3 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-200">
-              <MailX className="h-3.5 w-3.5" /> Connect your Gmail
-            </Link>
-          ) : connected ? (
+          {isConnected && !needsReconnect ? (
             <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-700">
               <MailCheck className="h-3 w-3" /> Gmail connected
             </span>
           ) : null}
         </div>
 
-        {/* AI drafter */}
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <select
             value={mode} onChange={(e) => setMode(e.target.value as DraftMode)}
@@ -155,7 +199,7 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
             {DRAFT_MODES.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
           <button
-            onClick={onGenerate} disabled={drafting || connected === false}
+            onClick={onGenerate} disabled={drafting || !isConnected || needsReconnect}
             className="inline-flex items-center gap-1.5 rounded-md bg-[color:var(--gold)]/20 px-3 py-1.5 text-sm font-medium text-[color:var(--forest)] hover:bg-[color:var(--gold)]/30 disabled:opacity-60"
           >
             {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
@@ -178,11 +222,11 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
 
         <div className="mt-3 flex items-center justify-between gap-3">
           <div className="text-[11px] text-muted-foreground">
-            On send: applies Gmail label <span className="font-medium">{labelHint(stage)}</span>, updates workflow, logs to timeline.
+            On confirmed send: applies Gmail label <span className="font-medium">{labelHint(stage)}</span>, updates workflow, logs to timeline.
           </div>
           <button
             onClick={onSend}
-            disabled={sending || !c.email || connected === false || !subject.trim() || !body.trim()}
+            disabled={sending || !c.email || !isConnected || needsReconnect || !subject.trim() || !body.trim()}
             className="inline-flex items-center gap-2 rounded-md bg-[color:var(--forest)] px-4 py-2 text-sm font-medium text-white hover:opacity-95 disabled:opacity-60"
           >
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -190,11 +234,10 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
           </button>
         </div>
         {err ? (
-          <div className="mt-3 inline-flex items-start gap-1.5 rounded-md bg-red-50 px-3 py-1.5 text-xs text-red-700">
-            <AlertCircle className="mt-0.5 h-3.5 w-3.5" /> {err}
+          <div className="mt-3 flex items-start gap-1.5 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> <span>{err}</span>
           </div>
         ) : null}
-        {notice ? <div className="mt-3 text-xs text-emerald-700">{notice}</div> : null}
       </section>
 
       <section className="rounded-xl border border-border bg-card p-5">
@@ -210,6 +253,12 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
             <RefreshCw className="h-3.5 w-3.5" /> Check for replies
           </button>
         </div>
+
+        {pollErr ? (
+          <div className="mb-3 flex items-start gap-1.5 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> <span>{pollErr}</span>
+          </div>
+        ) : null}
 
         {loading ? (
           <div className="grid place-items-center py-8"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
@@ -243,6 +292,41 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
           </ul>
         )}
       </section>
+    </div>
+  );
+}
+
+function ConnectBanner() {
+  return (
+    <div className="flex items-start justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+      <div className="flex items-start gap-2 text-sm text-amber-900">
+        <MailX className="mt-0.5 h-4 w-4" />
+        <div>
+          <div className="font-medium">Gmail isn't connected.</div>
+          <div className="text-xs">Connect your Gmail in Settings to send outreach and sync replies.</div>
+        </div>
+      </div>
+      <Link to="/settings" className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700">
+        Connect Gmail
+      </Link>
+    </div>
+  );
+}
+
+function ReconnectBanner({ reason, status }: { reason: string | null; status: number | null }) {
+  return (
+    <div className="flex items-start justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
+      <div className="flex items-start gap-2 text-sm text-red-900">
+        <ShieldAlert className="mt-0.5 h-4 w-4" />
+        <div>
+          <div className="font-medium">Gmail connection needs attention.</div>
+          <div className="text-xs">Reconnect Gmail to restore sending and reply syncing.</div>
+          {reason ? <div className="mt-1 text-[11px] text-red-700">Last error {status ?? ""}: {reason}</div> : null}
+        </div>
+      </div>
+      <Link to="/settings" className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700">
+        Reconnect Gmail
+      </Link>
     </div>
   );
 }

@@ -7,6 +7,23 @@ import { CREATOR_GMAIL_LABELS, labelForStage } from "./gmail-labels";
 const GATEWAY_BASE_URL = "https://connector-gateway.lovable.dev";
 const CONNECTOR_ID = "google_mail";
 
+// Gmail API returns 401 (invalid/expired token) or 403 (missing scope / revoked)
+// when the connection needs the user to re-consent. We treat both as "needs reconnect".
+function isReconnectStatus(status: number): boolean {
+  return status === 401 || status === 403;
+}
+
+function parseGmailErrorReason(text: string): string {
+  try {
+    const j = JSON.parse(text);
+    const err = j?.error;
+    if (err?.message) return err.message;
+    if (err?.status) return err.status;
+    if (typeof err === "string") return err;
+  } catch { /* not JSON */ }
+  return text.slice(0, 300);
+}
+
 // ---------- Connect / status / disconnect ----------
 
 export const getGmailConnectionStatus = createServerFn({ method: "GET" })
@@ -14,13 +31,27 @@ export const getGmailConnectionStatus = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { getConnectionKeyForUser } = await import("@/server/appUserConnections.server");
     const key = await getConnectionKeyForUser(context.userId, CONNECTOR_ID);
-    if (!key) return { connected: false as const };
-    // Look up cached email address if any.
+    if (!key) {
+      return { connected: false as const, needsReconnect: false as const };
+    }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data } = await supabaseAdmin
-      .from("gmail_poll_state").select("email_address, last_polled_at")
-      .eq("user_id", context.userId).maybeSingle();
-    return { connected: true as const, emailAddress: data?.email_address ?? null, lastPolledAt: data?.last_polled_at ?? null };
+      .from("gmail_poll_state")
+      .select("email_address, last_polled_at, last_success_at, last_error_status, last_error_reason, last_error_at")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    const needsReconnect =
+      !!data?.last_error_status && isReconnectStatus(data.last_error_status);
+    return {
+      connected: true as const,
+      needsReconnect,
+      emailAddress: data?.email_address ?? null,
+      lastPolledAt: data?.last_polled_at ?? null,
+      lastSuccessAt: data?.last_success_at ?? null,
+      lastErrorStatus: data?.last_error_status ?? null,
+      lastErrorReason: data?.last_error_reason ?? null,
+      lastErrorAt: data?.last_error_at ?? null,
+    };
   });
 
 export const startGmailConnect = createServerFn({ method: "POST" })
@@ -60,7 +91,6 @@ export const saveGmailConnection = createServerFn({ method: "POST" })
     const { saveConnectionKeyForUser } = await import("@/server/appUserConnections.server");
     await saveConnectionKeyForUser(context.userId, CONNECTOR_ID, data.connectionAPIKey);
 
-    // Fetch profile email + ensure labels exist.
     try {
       const { callAsAppUser } = await import("@/integrations/lovable/appUserConnector");
       const profileRes = await callAsAppUser({
@@ -68,22 +98,24 @@ export const saveGmailConnection = createServerFn({ method: "POST" })
         connectorId: CONNECTOR_ID, path: "/gmail/v1/users/me/profile",
       });
       const profile = profileRes.ok ? (await profileRes.json()) as { emailAddress?: string } : null;
-
       const labelIds = await ensureLabelsExist(data.connectionAPIKey);
 
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      // Reconnect clears prior error state.
       await supabaseAdmin.from("gmail_poll_state").upsert(
         {
           user_id: context.userId,
           email_address: profile?.emailAddress ?? null,
           label_ids: labelIds,
+          last_error_status: null,
+          last_error_reason: null,
+          last_error_at: null,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "user_id" },
       );
       return { ok: true, emailAddress: profile?.emailAddress ?? null };
     } catch (e) {
-      // Save succeeded; label / profile pre-fill is best effort.
       return { ok: true, emailAddress: null, warning: e instanceof Error ? e.message : String(e) };
     }
   });
@@ -164,6 +196,12 @@ function buildRawEmail(opts: {
   return encodeBase64Url(lines.join("\r\n"));
 }
 
+// Structured result — never throws for provider errors so the client can render
+// a specific message + reconnect banner. Only network/config errors throw.
+export type SendGmailResult =
+  | { ok: true; messageId: string; threadId: string; sentAt: string }
+  | { ok: false; status: number; reason: string; needsReconnect: boolean };
+
 export const sendGmailToCreator = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: {
@@ -175,12 +213,36 @@ export const sendGmailToCreator = createServerFn({ method: "POST" })
     cc?: string;
     threadId?: string;
     inReplyTo?: string;
-    stage?: string; // to pick which label to apply
+    stage?: string;
   }) => input)
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }): Promise<SendGmailResult> => {
     const { getConnectionKeyForUser } = await import("@/server/appUserConnections.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const logError = async (status: number, reason: string, senderEmail: string | null) => {
+      await supabaseAdmin.from("gmail_send_errors").insert({
+        user_id: context.userId,
+        sender_email: senderEmail,
+        creator_id: data.creatorId,
+        creator_name: data.creatorName ?? null,
+        recipient: data.creatorEmail,
+        action: "send",
+        http_status: status,
+        error_reason: reason,
+        subject: data.subject,
+      });
+    };
+
     const connectionAPIKey = await getConnectionKeyForUser(context.userId, CONNECTOR_ID);
-    if (!connectionAPIKey) throw new Error("Gmail is not connected. Connect your Gmail in Settings first.");
+    if (!connectionAPIKey) {
+      await logError(0, "Gmail not connected for this user.", null);
+      return { ok: false, status: 0, reason: "Gmail is not connected. Connect your Gmail in Settings first.", needsReconnect: true };
+    }
+
+    const { data: state } = await supabaseAdmin
+      .from("gmail_poll_state").select("label_ids, email_address")
+      .eq("user_id", context.userId).maybeSingle();
+    const senderEmail = state?.email_address ?? null;
 
     const { callAsAppUser } = await import("@/integrations/lovable/appUserConnector");
     const raw = buildRawEmail({
@@ -191,6 +253,7 @@ export const sendGmailToCreator = createServerFn({ method: "POST" })
       inReplyTo: data.inReplyTo,
       references: data.inReplyTo,
     });
+
     const sendRes = await callAsAppUser({
       gatewayBaseUrl: GATEWAY_BASE_URL, connectionAPIKey, connectorId: CONNECTOR_ID,
       path: "/gmail/v1/users/me/messages/send",
@@ -200,16 +263,31 @@ export const sendGmailToCreator = createServerFn({ method: "POST" })
         body: JSON.stringify({ raw, ...(data.threadId ? { threadId: data.threadId } : {}) }),
       },
     });
+
     if (!sendRes.ok) {
-      const err = await sendRes.text();
-      throw new Error(`Gmail send failed (${sendRes.status}): ${err}`);
+      const text = await sendRes.text();
+      const reason = parseGmailErrorReason(text);
+      const needsReconnect = isReconnectStatus(sendRes.status);
+      await logError(sendRes.status, reason, senderEmail);
+      // Reflect the error into poll_state so the health banner picks it up too.
+      if (needsReconnect) {
+        await supabaseAdmin.from("gmail_poll_state").upsert(
+          {
+            user_id: context.userId,
+            last_error_status: sendRes.status,
+            last_error_reason: reason,
+            last_error_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" },
+        );
+      }
+      return { ok: false, status: sendRes.status, reason, needsReconnect };
     }
+
     const sent = await sendRes.json() as { id: string; threadId: string; labelIds?: string[] };
 
     // Apply the workflow-stage label + parent "Creator Partnerships".
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: state } = await supabaseAdmin
-      .from("gmail_poll_state").select("label_ids, email_address").eq("user_id", context.userId).maybeSingle();
     const labels = (state?.label_ids ?? {}) as Record<string, string>;
     const stageLabel = labelForStage(data.stage);
     const addLabelIds = [labels["Creator Partnerships"], labels[stageLabel]].filter(Boolean) as string[];
@@ -225,6 +303,7 @@ export const sendGmailToCreator = createServerFn({ method: "POST" })
       });
     }
 
+    const sentAt = new Date().toISOString();
     // Cache the sent message so the conversation history shows it immediately.
     await supabaseAdmin.from("gmail_messages").upsert({
       user_id: context.userId,
@@ -232,16 +311,29 @@ export const sendGmailToCreator = createServerFn({ method: "POST" })
       gmail_message_id: sent.id,
       gmail_thread_id: sent.threadId,
       direction: "sent",
-      from_email: state?.email_address ?? null,
+      from_email: senderEmail,
       to_emails: [data.creatorEmail],
       subject: data.subject,
       snippet: data.body.slice(0, 200),
       body_text: data.body,
       label_ids: addLabelIds,
-      sent_at: new Date().toISOString(),
+      sent_at: sentAt,
     }, { onConflict: "user_id,gmail_message_id" });
 
-    return { ok: true, messageId: sent.id, threadId: sent.threadId };
+    // A successful send clears any prior send-related error state.
+    await supabaseAdmin.from("gmail_poll_state").upsert(
+      {
+        user_id: context.userId,
+        last_error_status: null,
+        last_error_reason: null,
+        last_error_at: null,
+        last_success_at: sentAt,
+        updated_at: sentAt,
+      },
+      { onConflict: "user_id" },
+    );
+
+    return { ok: true, messageId: sent.id, threadId: sent.threadId, sentAt };
   });
 
 // ---------- AI drafter (Gemini 2.5 Flash) ----------
@@ -310,7 +402,6 @@ export const generateEmailDraft = createServerFn({ method: "POST" })
     }
     const body = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
     const raw = body.choices?.[0]?.message?.content?.trim() ?? "";
-    // Split "Subject: ..." first line from body.
     const match = raw.match(/^Subject:\s*(.+?)\r?\n\r?\n?([\s\S]*)$/);
     if (match) return { subject: match[1].trim(), body: match[2].trim() };
     return { subject: "", body: raw };
@@ -339,15 +430,27 @@ export const pollGmailForReplies = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     const { getConnectionKeyForUser } = await import("@/server/appUserConnections.server");
     const connectionAPIKey = await getConnectionKeyForUser(context.userId, CONNECTOR_ID);
-    if (!connectionAPIKey) return { polled: false as const, reason: "not_connected" };
+    if (!connectionAPIKey) return { polled: false as const, reason: "not_connected", needsReconnect: false };
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: state } = await supabaseAdmin
       .from("gmail_poll_state").select("last_polled_at").eq("user_id", context.userId).maybeSingle();
-    // Search for messages since last poll (or last 24h on first poll).
     const sinceUnix = Math.floor(
       (state?.last_polled_at ? new Date(state.last_polled_at).getTime() : Date.now() - 24 * 3600_000) / 1000,
     );
+
+    const recordPollError = async (status: number, reason: string) => {
+      await supabaseAdmin.from("gmail_poll_state").upsert(
+        {
+          user_id: context.userId,
+          last_error_status: status,
+          last_error_reason: reason,
+          last_error_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" },
+      );
+    };
 
     const { callAsAppUser } = await import("@/integrations/lovable/appUserConnector");
     const listRes = await callAsAppUser({
@@ -355,12 +458,20 @@ export const pollGmailForReplies = createServerFn({ method: "POST" })
       path: `/gmail/v1/users/me/messages?q=${encodeURIComponent(`after:${sinceUnix} -from:me`)}&maxResults=25`,
     });
     if (!listRes.ok) {
-      return { polled: false as const, reason: `list_failed_${listRes.status}` };
+      const text = await listRes.text();
+      const reason = parseGmailErrorReason(text);
+      await recordPollError(listRes.status, reason);
+      return {
+        polled: false as const,
+        reason: `list_failed_${listRes.status}`,
+        status: listRes.status,
+        errorReason: reason,
+        needsReconnect: isReconnectStatus(listRes.status),
+      };
     }
     const listData = await listRes.json() as { messages?: GmailListMessage[] };
     const ids = (listData.messages ?? []).map((m) => m.id);
 
-    // Preload known creator emails so we can map replies to creators.
     const { CREATORS } = await import("./creator-partnerships");
     const emailToCreator = new Map<string, { id: string; name: string }>();
     for (const c of CREATORS) {
@@ -369,7 +480,6 @@ export const pollGmailForReplies = createServerFn({ method: "POST" })
 
     let stored = 0;
     for (const id of ids) {
-      // Skip if already stored.
       const { data: existing } = await supabaseAdmin
         .from("gmail_messages").select("id").eq("user_id", context.userId).eq("gmail_message_id", id).maybeSingle();
       if (existing) continue;
@@ -402,13 +512,18 @@ export const pollGmailForReplies = createServerFn({ method: "POST" })
       stored += 1;
     }
 
+    const now = new Date().toISOString();
     await supabaseAdmin.from("gmail_poll_state").upsert({
       user_id: context.userId,
-      last_polled_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      last_polled_at: now,
+      last_success_at: now,
+      last_error_status: null,
+      last_error_reason: null,
+      last_error_at: null,
+      updated_at: now,
     }, { onConflict: "user_id" });
 
-    return { polled: true as const, checked: ids.length, stored };
+    return { polled: true as const, checked: ids.length, stored, needsReconnect: false };
   });
 
 // ---------- Read cached messages ----------
@@ -425,7 +540,6 @@ export const listCreatorMessages = createServerFn({ method: "GET" })
       .order("sent_at", { ascending: false })
       .limit(100);
     if (error) throw error;
-    // Also flag viewer's ownership (whether they sent it or received it).
     return { messages: rows ?? [], viewerId: context.userId };
   });
 
@@ -439,4 +553,19 @@ export const listRecentMessages = createServerFn({ method: "GET" })
       .order("sent_at", { ascending: false })
       .limit(50);
     return { messages: rows ?? [], viewerId: context.userId };
+  });
+
+// ---------- Send-error audit log ----------
+
+export const listGmailSendErrors = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows } = await supabaseAdmin
+      .from("gmail_send_errors")
+      .select("id, sender_email, creator_id, creator_name, recipient, action, http_status, error_reason, subject, created_at")
+      .eq("user_id", context.userId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    return { rows: rows ?? [] };
   });
