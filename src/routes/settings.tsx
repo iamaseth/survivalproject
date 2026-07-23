@@ -770,8 +770,7 @@ function GmailOpsSubsection() {
   const getStatus = useServerFn(getGmailStatus);
   const [errs, setErrs] = useState<Array<{
     id: string; created_at: string; creator_id: string | null;
-    status_code: number | null; error_reason: string | null; subject: string | null;
-    to_email: string | null;
+    http_status: number | null; error_reason: string | null; subject: string | null; recipient: string | null;
   }>>([]);
   const [poll, setPoll] = useState<{ lastPolledAt: string | null; lastErrorStatus: number | null; lastErrorReason: string | null; needsReconnect: boolean } | null>(null);
   const [recon, setRecon] = useState<ReturnType<typeof previewReconcileWaitingForReply> | null>(null);
@@ -781,7 +780,7 @@ function GmailOpsSubsection() {
     (async () => {
       try {
         const [e, s] = await Promise.all([listErrors(), getStatus()]);
-        setErrs(e.errors as typeof errs);
+        setErrs(e.rows as typeof errs);
         if (s.connected) {
           setPoll({
             lastPolledAt: s.lastPolledAt ?? null,
@@ -887,8 +886,8 @@ function GmailOpsSubsection() {
                     <tr key={e.id}>
                       <td className="px-3 py-2 text-muted-foreground">{new Date(e.created_at).toLocaleString()}</td>
                       <td className="px-3 py-2">{name}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{e.to_email ?? "—"}</td>
-                      <td className="px-3 py-2 font-mono">{e.status_code ?? "—"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{e.recipient ?? "—"}</td>
+                      <td className="px-3 py-2 font-mono">{e.http_status ?? "—"}</td>
                       <td className="px-3 py-2 text-red-800">{e.error_reason ?? "—"}</td>
                     </tr>
                   );
