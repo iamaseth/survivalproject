@@ -20,8 +20,20 @@ import {
   type OutreachStatus,
   type DeliveryStatus,
 } from "@/lib/creator-workspace";
+import {
+  computeStage,
+  nextAction,
+  primaryActions,
+  relationshipHealth,
+  healthTone,
+  healthDot,
+  stageTone,
+  daysBetween,
+  timeAgo,
+} from "@/lib/creator-workflow";
 import { PageHeader } from "@/components/PageHeader";
-import { ArrowLeft, ExternalLink, Mail, Copy, Send, Truck, ShieldCheck, Clock, AlertCircle, UserCheck, FileText, ListChecks, StickyNote } from "lucide-react";
+import { ArrowLeft, ExternalLink, Mail, Copy, Send, Truck, ShieldCheck, Clock, AlertCircle, UserCheck, FileText, ListChecks, StickyNote, Compass, Activity as ActivityIcon, Heart, CalendarClock } from "lucide-react";
+
 
 export const Route = createFileRoute("/creators/$id")({
   loader: ({ params }) => {
@@ -87,6 +99,9 @@ function CreatorDetail() {
           </div>
         }
       />
+
+      <WorkflowCard c={c} />
+
 
       {/* Snapshot */}
       <section className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-4">
@@ -154,7 +169,123 @@ function SnapshotCard({ icon, label, value, tone, extra }: { icon: React.ReactNo
   );
 }
 
+function WorkflowCard({ c }: { c: CreatorRow }) {
+  const ws = useWorkspace(c);
+  const stage = computeStage(c, ws);
+  const health = relationshipHealth(c, ws);
+  const actions = primaryActions(c, ws, stage);
+  const followDays = daysBetween(ws.nextFollowUpDate);
+  const lastDays = daysBetween(ws.lastContactDate ?? ws.dateSent);
+  const overdueFollow = followDays !== null && followDays < 0;
+
+  return (
+    <section className="mb-5 rounded-xl border border-border bg-card shadow-sm">
+      {/* Work-queue chips */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5 text-[11px]">
+        <Chip label="Owner" value={ws.currentOwner ?? "Unassigned"} />
+        <Chip label="Supervisor" value="RENA" />
+        <Chip label="Priority" value={c.priority ?? "—"} />
+        <span className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 font-medium ${stageTone(stage)}`}>
+          <Compass className="h-3 w-3" /> {stage}
+        </span>
+        <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 font-medium ${healthTone(health)}`}>
+          <span>{healthDot(health)}</span> {health}
+        </span>
+        <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 ${overdueFollow ? "bg-red-100 text-red-800" : "bg-secondary text-secondary-foreground"}`}>
+          <CalendarClock className="h-3 w-3" />
+          {ws.nextFollowUpDate
+            ? overdueFollow
+              ? `Overdue by ${-followDays!} day${-followDays! === 1 ? "" : "s"}`
+              : followDays === 0
+                ? "Follow-up today"
+                : `Follow-up in ${followDays} day${followDays === 1 ? "" : "s"}`
+            : "No follow-up scheduled"}
+        </span>
+      </div>
+
+      <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_260px_220px]">
+        {/* Current stage + recommendation + actions */}
+        <div>
+          <div className="mb-1 text-[11px] uppercase tracking-wider text-muted-foreground">Current stage</div>
+          <div className={`mb-2 inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-semibold ${stageTone(stage)}`}>
+            <ActivityIcon className="h-4 w-4" /> {stage}
+          </div>
+          <div className="mb-1 text-[11px] uppercase tracking-wider text-muted-foreground">Recommended next action</div>
+          <p className="mb-3 text-sm text-foreground">{nextAction(stage)}</p>
+          {actions.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {actions.map((a) => (
+                <button
+                  key={a.id}
+                  onClick={a.run}
+                  className={
+                    a.variant === "primary"
+                      ? "rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                      : "rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-secondary"
+                  }
+                >
+                  {a.label}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">No guided actions for this stage.</p>
+          )}
+        </div>
+
+        {/* Next follow-up */}
+        <div className={`rounded-lg border p-3 ${overdueFollow ? "border-red-200 bg-red-50" : "border-border bg-secondary/40"}`}>
+          <div className="mb-1 flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+            <Clock className="h-3.5 w-3.5" /> Next follow-up
+          </div>
+          <div className={`text-lg font-semibold ${overdueFollow ? "text-red-800" : "text-foreground"}`}>
+            {ws.nextFollowUpDate ?? "Not scheduled"}
+          </div>
+          <div className={`text-xs ${overdueFollow ? "text-red-700" : "text-muted-foreground"}`}>
+            {ws.nextFollowUpDate
+              ? overdueFollow
+                ? `Overdue by ${-followDays!} day${-followDays! === 1 ? "" : "s"}`
+                : followDays === 0
+                  ? "Due today"
+                  : `In ${followDays} day${followDays === 1 ? "" : "s"}`
+              : "Set a date in the Outreach tab"}
+          </div>
+        </div>
+
+        {/* Last contact */}
+        <div className="rounded-lg border border-border bg-secondary/40 p-3">
+          <div className="mb-1 flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+            <Heart className="h-3.5 w-3.5" /> Last contact
+          </div>
+          <div className="text-sm font-medium text-foreground">
+            {ws.contactMethod ?? c.contactMethod ?? "—"}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {ws.lastContactDate ?? ws.dateSent ?? "No outreach yet"}
+            {lastDays !== null ? ` · ${timeAgo(ws.lastContactDate ?? ws.dateSent)}` : ""}
+          </div>
+          {ws.activity.length > 0 ? (
+            <div className="mt-2 text-[11px] text-muted-foreground">
+              Last activity: <span className="text-foreground">{ws.activity[ws.activity.length - 1].action}</span>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Chip({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded bg-secondary px-2 py-0.5 text-secondary-foreground">
+      <span className="text-muted-foreground">{label}:</span>
+      <span className="font-medium">{value}</span>
+    </span>
+  );
+}
+
 function Overview({ c }: { c: CreatorRow }) {
+
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <Card title="Identity & reach">
