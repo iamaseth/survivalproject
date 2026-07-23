@@ -53,6 +53,7 @@ const QUEUES: { key: QueueKey; label: string; icon: React.ComponentType<{ classN
 ];
 
 function CreatorsList() {
+  const ops = useDashboardCounts();
   const [q, setQ] = useState("");
   const [queue, setQueue] = useState<QueueKey>("all");
   const [ownerFilter, setOwnerFilter] = useState<"All" | "RENA" | "VINA" | "Unassigned">("All");
