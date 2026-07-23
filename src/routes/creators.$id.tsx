@@ -215,7 +215,340 @@ function Overview({ c }: { c: CreatorRow }) {
   );
 }
 
+function OutreachPanel({ c }: { c: CreatorRow }) {
+  const ws = useWorkspace(c);
+  const today = new Date().toISOString().slice(0, 10);
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      <Card title="Outreach status">
+        <FieldRow label="Status">
+          <select
+            value={ws.outreachStatus}
+            onChange={(e) => updateWorkspace(c.id, { outreachStatus: e.target.value as OutreachStatus })}
+            className="rounded-md border border-input bg-background px-2 py-1 text-sm"
+          >
+            {["Not Started", "Draft Ready", "Sent", "Follow-up Sent", "Replied", "No Response"].map((s) => (
+              <option key={s}>{s}</option>
+            ))}
+          </select>
+        </FieldRow>
+        <FieldRow label="Contact method">
+          <input
+            value={ws.contactMethod ?? ""}
+            onChange={(e) => updateWorkspace(c.id, { contactMethod: e.target.value || null })}
+            placeholder="Email / DM / Call"
+            className="rounded-md border border-input bg-background px-2 py-1 text-sm"
+          />
+        </FieldRow>
+        <FieldRow label="Email draft created">
+          <Toggle checked={ws.emailDraftCreated} onChange={(v) => updateWorkspace(c.id, { emailDraftCreated: v })} />
+        </FieldRow>
+        <FieldRow label="Email sent">
+          <Toggle checked={ws.emailSent} onChange={(v) => updateWorkspace(c.id, { emailSent: v })} />
+        </FieldRow>
+        <FieldRow label="Date sent">
+          <DateInput value={ws.dateSent} onChange={(v) => updateWorkspace(c.id, { dateSent: v })} />
+        </FieldRow>
+        <FieldRow label="Last contact date">
+          <DateInput value={ws.lastContactDate} onChange={(v) => updateWorkspace(c.id, { lastContactDate: v })} />
+        </FieldRow>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            onClick={() => addActivity(c, { at: today, actor: (ws.currentOwner ?? "RENA") as any, kind: "email_sent", action: "Outreach email sent" })}
+            className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Log email sent
+          </button>
+          <button
+            onClick={() => addActivity(c, { at: today, actor: (ws.currentOwner ?? "RENA") as any, kind: "followup_sent", action: "Follow-up sent" })}
+            className="rounded-md border border-input px-3 py-1.5 text-xs hover:bg-secondary"
+          >
+            Log follow-up
+          </button>
+          <button
+            onClick={() => addActivity(c, { at: today, actor: (ws.currentOwner ?? "RENA") as any, kind: "creator_replied", action: "Creator replied" })}
+            className="rounded-md border border-input px-3 py-1.5 text-xs hover:bg-secondary"
+          >
+            Mark replied
+          </button>
+        </div>
+      </Card>
+
+      <Card title="Follow-up">
+        <FieldRow label="Next follow-up date">
+          <DateInput value={ws.nextFollowUpDate} onChange={(v) => updateWorkspace(c.id, { nextFollowUpDate: v })} />
+        </FieldRow>
+        <FieldRow label="Follow-up count">
+          <input
+            type="number"
+            min={0}
+            value={ws.followUpCount}
+            onChange={(e) => updateWorkspace(c.id, { followUpCount: Math.max(0, Number(e.target.value) || 0) })}
+            className="w-20 rounded-md border border-input bg-background px-2 py-1 text-sm"
+          />
+        </FieldRow>
+        <FieldRow label="Waiting for reply">
+          <Toggle checked={ws.waitingForReply} onChange={(v) => updateWorkspace(c.id, { waitingForReply: v })} />
+        </FieldRow>
+        <FieldRow label="No response">
+          <Toggle checked={ws.noResponse} onChange={(v) => updateWorkspace(c.id, { noResponse: v })} />
+        </FieldRow>
+        <FieldRow label="Responded">
+          <Toggle checked={ws.responded} onChange={(v) => updateWorkspace(c.id, { responded: v })} />
+        </FieldRow>
+        <div className="mt-3 rounded-md border border-border bg-secondary/40 p-3 text-xs">
+          <div className="mb-1 font-medium">Original sheet values</div>
+          <div>Contacted: {c.contactedDate ?? "—"} · Method: {c.contactMethod ?? "—"}</div>
+          <div>Response / follow-up: {c.responseFollowup ?? "—"}</div>
+        </div>
+      </Card>
+
+      <Card title="Outreach history (auto)" full>
+        <OutreachHistory c={c} />
+      </Card>
+    </div>
+  );
+}
+
+function AssignmentPanel({ c }: { c: CreatorRow }) {
+  const ws = useWorkspace(c);
+  const today = new Date().toISOString().slice(0, 10);
+  const assign = (to: "RENA" | "VINA" | null) => {
+    updateWorkspace(c.id, { assignedTo: to, currentOwner: to, assignedDate: to ? today : null });
+    if (to) addActivity(c, { at: today, actor: "RENA", kind: to === "VINA" ? "assigned_vina" : "assigned_rena", action: `Assigned to ${to === "VINA" ? "Vina" : "Rena"}` });
+  };
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      <Card title="Assignment">
+        <FieldRow label="Assigned to">
+          <div className="flex gap-1">
+            {(["RENA", "VINA"] as const).map((o) => (
+              <button
+                key={o}
+                onClick={() => assign(o)}
+                className={`rounded-md px-3 py-1 text-xs font-medium ${ws.assignedTo === o ? "bg-primary text-primary-foreground" : "border border-input hover:bg-secondary"}`}
+              >
+                {o === "RENA" ? "Rena" : "Vina"}
+              </button>
+            ))}
+            <button onClick={() => assign(null)} className="rounded-md border border-input px-3 py-1 text-xs hover:bg-secondary">
+              Unassign
+            </button>
+          </div>
+        </FieldRow>
+        <FieldRow label="Assigned date">
+          <DateInput value={ws.assignedDate} onChange={(v) => updateWorkspace(c.id, { assignedDate: v })} />
+        </FieldRow>
+        <FieldRow label="Current owner">
+          <span className={`inline-flex rounded px-2 py-0.5 text-[11px] ${ownerTone(ws.currentOwner)}`}>
+            {ws.currentOwner ?? "Unassigned"}
+          </span>
+        </FieldRow>
+        <FieldRow label="Supervisor">
+          <span className="inline-flex rounded bg-[color:var(--forest)]/15 px-2 py-0.5 text-[11px] font-medium text-[color:var(--forest)]">RENA</span>
+        </FieldRow>
+      </Card>
+      <Card title="Workflow">
+        <ol className="space-y-1.5 text-sm">
+          {[
+            "Research (Seth + AI)",
+            "AI Recommendation",
+            "Assigned to Rena or Vina",
+            "Outreach",
+            "Follow-up",
+            "Sample / Shipping",
+            "Content",
+            "Relationship Management",
+          ].map((s, i) => (
+            <li key={s} className="flex items-center gap-2">
+              <span className="grid h-5 w-5 place-items-center rounded-full bg-secondary text-[10px]">{i + 1}</span>
+              <span className="text-muted-foreground">{s}</span>
+            </li>
+          ))}
+        </ol>
+        <p className="mt-3 text-[11px] text-muted-foreground">
+          Perry provides executive oversight and may comment or override at any point. The workflow never waits on Perry.
+        </p>
+      </Card>
+    </div>
+  );
+}
+
+function ContentPanel({ c }: { c: CreatorRow }) {
+  const ws = useWorkspace(c);
+  const platforms = ["Instagram", "YouTube", "TikTok", "Facebook", "Blog", "Podcast"];
+  const toggle = (p: string) => {
+    const has = ws.publishedPlatforms.includes(p);
+    updateWorkspace(c.id, {
+      publishedPlatforms: has ? ws.publishedPlatforms.filter((x) => x !== p) : [...ws.publishedPlatforms, p],
+    });
+  };
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      <Card title="Content deliverables">
+        <FieldRow label="Content promised">
+          <input
+            value={ws.contentPromised ?? ""}
+            onChange={(e) => updateWorkspace(c.id, { contentPromised: e.target.value || null })}
+            placeholder="e.g. 1 Reel + 3 stories"
+            className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+          />
+        </FieldRow>
+        <FieldRow label="Content received">
+          <Toggle checked={ws.contentReceived} onChange={(v) => updateWorkspace(c.id, { contentReceived: v })} />
+        </FieldRow>
+        <FieldRow label="Publish date">
+          <DateInput value={ws.publishDate} onChange={(v) => updateWorkspace(c.id, { publishDate: v })} />
+        </FieldRow>
+      </Card>
+      <Card title="Published platforms">
+        <div className="flex flex-wrap gap-2">
+          {platforms.map((p) => {
+            const on = ws.publishedPlatforms.includes(p);
+            return (
+              <button
+                key={p}
+                onClick={() => toggle(p)}
+                className={`rounded-full border px-3 py-1 text-xs ${on ? "border-primary bg-primary text-primary-foreground" : "border-input hover:bg-secondary"}`}
+              >
+                {p}
+              </button>
+            );
+          })}
+        </div>
+        {ws.contentReceived && ws.publishDate ? (
+          <button
+            onClick={() => addActivity(c, { at: ws.publishDate!, actor: (ws.currentOwner ?? "RENA") as any, kind: "content_published", action: `Content published on ${ws.publishedPlatforms.join(", ") || "platform"}` })}
+            className="mt-3 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Log "content published"
+          </button>
+        ) : null}
+      </Card>
+    </div>
+  );
+}
+
+function ActivityTimeline({ c }: { c: CreatorRow }) {
+  const ws = useWorkspace(c);
+  const [note, setNote] = useState("");
+  const [actor, setActor] = useState<Activity["actor"]>((ws.currentOwner ?? "RENA") as Activity["actor"]);
+  const submit = () => {
+    if (!note.trim()) return;
+    addActivity(c, { at: new Date().toISOString().slice(0, 10), actor, kind: "note", action: "Note", notes: note.trim() });
+    setNote("");
+  };
+  return (
+    <div className="grid gap-4 md:grid-cols-[1fr_320px]">
+      <Card title="Chronological activity">
+        {ws.activity.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No activity yet.</p>
+        ) : (
+          <ol className="space-y-3">
+            {ws.activity.map((e) => (
+              <li key={e.id} className="rounded-md border border-border bg-secondary/40 p-3">
+                <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <span className="rounded bg-card px-1.5 py-0.5 font-medium text-foreground">{e.actor}</span>
+                    <span className="text-foreground">{e.action}</span>
+                    <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] uppercase tracking-wider">{e.kind.replace(/_/g, " ")}</span>
+                  </div>
+                  <span>{e.at}</span>
+                </div>
+                {e.notes ? <p className="whitespace-pre-wrap text-sm">{e.notes}</p> : null}
+              </li>
+            ))}
+          </ol>
+        )}
+      </Card>
+      <Card title="Log a note">
+        <label className="mb-2 block text-[11px] uppercase tracking-wider text-muted-foreground">Team member</label>
+        <select
+          value={actor}
+          onChange={(e) => setActor(e.target.value as Activity["actor"])}
+          className="mb-3 w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+        >
+          {(["SETH", "RENA", "VINA", "PERRY"] as const).map((a) => (
+            <option key={a}>{a}</option>
+          ))}
+        </select>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="What happened?"
+          className="h-32 w-full rounded-md border border-input bg-background p-2 text-sm"
+        />
+        <button
+          onClick={submit}
+          className="mt-2 w-full rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+        >
+          Add to timeline
+        </button>
+      </Card>
+    </div>
+  );
+}
+
+function InternalNotes({ c }: { c: CreatorRow }) {
+  const ws = useWorkspace(c);
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      <NoteCard title="Team notes" icon={<StickyNote className="h-4 w-4" />} value={ws.teamNotes} onChange={(v) => updateWorkspace(c.id, { teamNotes: v })} />
+      <NoteCard title="AI recommendation" icon={<ListChecks className="h-4 w-4" />} value={ws.aiRecommendation} onChange={(v) => updateWorkspace(c.id, { aiRecommendation: v })} />
+      <NoteCard title="Research notes (Seth)" icon={<FileText className="h-4 w-4" />} value={ws.researchNotes} onChange={(v) => updateWorkspace(c.id, { researchNotes: v })} />
+      <NoteCard title="Executive notes (Perry)" icon={<ShieldCheck className="h-4 w-4" />} value={ws.executiveNotes} onChange={(v) => updateWorkspace(c.id, { executiveNotes: v })} />
+    </div>
+  );
+}
+
+function NoteCard({ title, icon, value, onChange }: { title: string; icon: React.ReactNode; value: string | null; onChange: (v: string | null) => void }) {
+  return (
+    <section className="rounded-lg border border-border bg-card p-4">
+      <h3 className="mb-3 flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground">{icon}{title}</h3>
+      <textarea
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value || null)}
+        placeholder="—"
+        className="h-32 w-full rounded-md border border-input bg-background p-2 text-sm"
+      />
+    </section>
+  );
+}
+
+function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-2 grid grid-cols-[160px_1fr] items-center gap-2 text-sm">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div>{children}</div>
+    </div>
+  );
+}
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      onClick={() => onChange(!checked)}
+      className={`inline-flex h-5 w-9 items-center rounded-full transition ${checked ? "bg-primary" : "bg-secondary"}`}
+    >
+      <span className={`inline-block h-4 w-4 transform rounded-full bg-background transition ${checked ? "translate-x-4" : "translate-x-0.5"}`} />
+    </button>
+  );
+}
+
+function DateInput({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
+  return (
+    <input
+      type="date"
+      value={value ?? ""}
+      onChange={(e) => onChange(e.target.value || null)}
+      className="rounded-md border border-input bg-background px-2 py-1 text-sm"
+    />
+  );
+}
+
+// Legacy OutreachHistory (kept as sub-component for OutreachPanel)
 function OutreachHistory({ c }: { c: CreatorRow }) {
+
   return (
     <Card title="Outreach timeline">
       {c.outreachHistory.length === 0 ? (
