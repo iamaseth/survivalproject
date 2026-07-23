@@ -1,16 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Mail, CheckCircle2, XCircle, Loader2, LogOut } from "lucide-react";
+import {
+  Mail, CheckCircle2, XCircle, Loader2, LogOut,
+  ShieldAlert, Trash2, Beaker, Download, History, AlertTriangle, Info,
+} from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { useAuth } from "@/lib/current-user";
 import { connectAppUser } from "@/integrations/lovable/appUserConnectorClient";
 import {
-  getGmailConnectionStatus,
-  startGmailConnect,
-  saveGmailConnection,
-  disconnectGmail,
+  getGmailConnectionStatus, startGmailConnect, saveGmailConnection, disconnectGmail,
 } from "@/lib/gmail.functions";
+import {
+  getResetPreview, runReset, listAuditLog, recordTestModeEvent,
+  type ResetScope,
+} from "@/lib/admin-reset.functions";
+import {
+  clearAllWorkspace, clearTestActivities, clearWorkspaceForIds,
+  exportWorkspaceSnapshot, isTestCreatorId, workspaceActivityCounts, workspaceOverrideCount,
+} from "@/lib/creator-workspace";
+import { CREATORS } from "@/lib/creator-partnerships";
+import { enableTestMode, disableTestMode, useTestMode } from "@/lib/test-mode";
 
 const GATEWAY_BASE_URL = "https://connector-gateway.lovable.dev";
 
@@ -18,7 +28,7 @@ export const Route = createFileRoute("/settings")({
   head: () => ({
     meta: [
       { title: "Settings — Survival Tabs Team Hub" },
-      { name: "description", content: "Connect your Gmail and manage personal workspace settings." },
+      { name: "description", content: "Connect Gmail, manage test data, and control workspace preferences." },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -27,6 +37,21 @@ export const Route = createFileRoute("/settings")({
 
 function SettingsPage() {
   const auth = useAuth();
+  const isExecutive = auth.status === "authenticated" && auth.profile.role === "executive";
+
+  return (
+    <div className="space-y-6">
+      <PageHeader eyebrow="Settings" title="Your workspace" description="Personal integrations, admin tools, and preferences." />
+      <GmailSection />
+      <ProfileSection />
+      <TestModeSection />
+      {isExecutive ? <DataManagementSection /> : <NonAdminDataManagementNote />}
+    </div>
+  );
+}
+
+/* ---------------- Gmail ---------------- */
+function GmailSection() {
   const status = useServerFn(getGmailConnectionStatus);
   const start = useServerFn(startGmailConnect);
   const save = useServerFn(saveGmailConnection);
@@ -80,79 +105,611 @@ function SettingsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <PageHeader eyebrow="Settings" title="Your workspace" description="Personal integrations and preferences." />
-
-      <section className="rounded-xl border border-border bg-card p-6">
-        <div className="flex items-start gap-4">
-          <div className="grid h-12 w-12 place-items-center rounded-lg bg-secondary">
-            <Mail className="h-6 w-6 text-[color:var(--forest)]" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h2 className="font-display text-lg">Gmail</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Connect your Gmail so outreach is sent from your own inbox, replies land in the creator timeline
-              automatically, and Gmail labels (Creator Partnerships, Outreach, Waiting Reply, Campaign, Completed)
-              are applied for you.
-            </p>
-
-            {connState.kind === "loading" ? (
-              <div className="mt-4 inline-flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" /> Checking connection…
+    <section className="rounded-xl border border-border bg-card p-6">
+      <div className="flex items-start gap-4">
+        <div className="grid h-12 w-12 place-items-center rounded-lg bg-secondary">
+          <Mail className="h-6 w-6 text-[color:var(--forest)]" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h2 className="font-display text-lg">Gmail</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Connect your Gmail so outreach is sent from your own inbox, replies land in the creator timeline
+            automatically, and Gmail labels are applied for you.
+          </p>
+          {connState.kind === "loading" ? (
+            <div className="mt-4 inline-flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Checking connection…
+            </div>
+          ) : connState.kind === "connected" ? (
+            <div className="mt-4 space-y-2">
+              <div className="inline-flex items-center gap-2 rounded-md bg-emerald-50 px-3 py-1.5 text-sm text-emerald-700">
+                <CheckCircle2 className="h-4 w-4" />
+                Connected{connState.email ? ` as ${connState.email}` : ""}
               </div>
-            ) : connState.kind === "connected" ? (
-              <div className="mt-4 space-y-2">
-                <div className="inline-flex items-center gap-2 rounded-md bg-emerald-50 px-3 py-1.5 text-sm text-emerald-700">
-                  <CheckCircle2 className="h-4 w-4" />
-                  Connected{connState.email ? ` as ${connState.email}` : ""}
+              {connState.lastPolledAt ? (
+                <div className="text-xs text-muted-foreground">
+                  Last checked for replies: {new Date(connState.lastPolledAt).toLocaleString()}
                 </div>
-                {connState.lastPolledAt ? (
-                  <div className="text-xs text-muted-foreground">
-                    Last checked for replies: {new Date(connState.lastPolledAt).toLocaleString()}
-                  </div>
-                ) : null}
+              ) : null}
+              <button
+                onClick={onDisconnect}
+                disabled={busy}
+                className="mt-3 inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-sm hover:bg-secondary disabled:opacity-60"
+              >
+                <LogOut className="h-4 w-4" /> Disconnect Gmail
+              </button>
+            </div>
+          ) : (
+            <div className="mt-4">
+              <div className="inline-flex items-center gap-2 rounded-md bg-amber-50 px-3 py-1.5 text-sm text-amber-800">
+                <XCircle className="h-4 w-4" /> Not connected
+              </div>
+              <div className="mt-3">
                 <button
-                  onClick={onDisconnect}
+                  onClick={onConnect}
                   disabled={busy}
-                  className="mt-3 inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-sm hover:bg-secondary disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-md bg-[color:var(--forest)] px-4 py-2 text-sm font-medium text-white hover:opacity-95 disabled:opacity-60"
                 >
-                  <LogOut className="h-4 w-4" /> Disconnect Gmail
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                  Connect my Gmail
                 </button>
               </div>
+            </div>
+          )}
+          {msg ? <p className="mt-3 text-xs text-muted-foreground">{msg}</p> : null}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ProfileSection() {
+  const auth = useAuth();
+  return (
+    <section className="rounded-xl border border-border bg-card p-6">
+      <h2 className="font-display text-lg">Profile</h2>
+      <p className="mt-1 text-sm text-muted-foreground">Managed via Google sign-in.</p>
+      {auth.status === "authenticated" ? (
+        <div className="mt-3 text-sm">
+          <div><span className="text-muted-foreground">Name:</span> {auth.profile.fullName}</div>
+          <div><span className="text-muted-foreground">Email:</span> {auth.profile.email}</div>
+          <div><span className="text-muted-foreground">Role:</span> {auth.profile.roleLabel}</div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+/* ---------------- Test Mode toggle ---------------- */
+function TestModeSection() {
+  const tm = useTestMode();
+  const record = useServerFn(recordTestModeEvent);
+  const [busy, setBusy] = useState(false);
+
+  const onToggle = async () => {
+    setBusy(true);
+    try {
+      if (tm.enabled) {
+        const prev = tm.sessionId;
+        disableTestMode();
+        void record({ data: { enabled: false, sessionId: prev } }).catch(() => {});
+      } else {
+        const next = enableTestMode();
+        void record({ data: { enabled: true, sessionId: next.sessionId } }).catch(() => {});
+      }
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <section className="rounded-xl border border-border bg-card p-6">
+      <div className="flex items-start gap-4">
+        <div className="grid h-12 w-12 place-items-center rounded-lg bg-secondary">
+          <Beaker className="h-6 w-6 text-[color:var(--forest)]" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-3">
+            <h2 className="font-display text-lg">Test Mode</h2>
+            {tm.enabled ? (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-amber-900">On</span>
             ) : (
-              <div className="mt-4">
-                <div className="inline-flex items-center gap-2 rounded-md bg-amber-50 px-3 py-1.5 text-sm text-amber-800">
-                  <XCircle className="h-4 w-4" /> Not connected
-                </div>
-                <div className="mt-3">
-                  <button
-                    onClick={onConnect}
-                    disabled={busy}
-                    className="inline-flex items-center gap-2 rounded-md bg-[color:var(--forest)] px-4 py-2 text-sm font-medium text-white hover:opacity-95 disabled:opacity-60"
-                  >
-                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-                    Connect my Gmail
-                  </button>
-                </div>
+              <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Off</span>
+            )}
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            When Test Mode is on, every activity entry, workflow change, draft, and email created gets tagged with a session id.
+            A banner appears at the top of the app so nobody mistakes test data for real work, and any test-tagged rows can be
+            wiped later without touching real data.
+          </p>
+          {tm.enabled ? (
+            <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+              Active session <span className="font-mono">{tm.sessionId}</span>
+              {tm.startedAt ? <> · started {new Date(tm.startedAt).toLocaleString()}</> : null}
+            </div>
+          ) : null}
+          <button
+            onClick={onToggle}
+            disabled={busy}
+            className={`mt-4 inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium disabled:opacity-60 ${
+              tm.enabled
+                ? "bg-amber-600 text-white hover:bg-amber-700"
+                : "bg-[color:var(--forest)] text-white hover:opacity-95"
+            }`}
+          >
+            {tm.enabled ? "Turn Test Mode off" : "Turn Test Mode on"}
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function NonAdminDataManagementNote() {
+  return (
+    <section className="rounded-xl border border-border bg-card p-6">
+      <div className="flex items-start gap-3">
+        <ShieldAlert className="mt-0.5 h-5 w-5 text-muted-foreground" />
+        <div>
+          <h2 className="font-display text-lg">Data Management</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Restricted to Executive Admins. Ask Perry to run a Test Data Reset if you need one.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ---------------- Data Management (Exec only) ---------------- */
+type Phase =
+  | { step: "idle" }
+  | { step: "review"; scope: ResetScope }
+  | { step: "confirm"; scope: ResetScope; typed: string }
+  | { step: "running"; scope: ResetScope }
+  | { step: "done"; scope: ResetScope; affected: Record<string, number> }
+  | { step: "error"; scope: ResetScope; message: string };
+
+const SCOPE_TITLE: Record<ResetScope, string> = {
+  test_activity: "Reset Test Activity Only",
+  test_creators: "Delete Test Creators Only",
+  full: "Full Operational Reset",
+};
+
+const SCOPE_DESC: Record<ResetScope, string> = {
+  test_activity:
+    "Recommended. Wipes the cached Gmail messages, poll checkpoints, workflow overrides, activity timelines, and drafts created during testing. Every creator's operational fields (outreach status, follow-up dates, shipping, workflow stage, relationship health) fall back to the values originally imported from the spreadsheet.",
+  test_creators:
+    "Removes only creator entries whose id starts with \"TEST-\" or whose name begins with \"TEST –\". Real imported creators are never touched. All Gmail cache, workflow, notes, and communication records for those test creators are also removed.",
+  full:
+    "Strongest reset. Clears every operational workspace override for every creator, wipes all cached Gmail messages and poll checkpoints, and resets dashboard metrics. The imported creator directory, research notes, ownership on the sheet, roles, Google authentication, Gmail connections, and Knowledge Center content are preserved. Requires typing the confirmation phrase.",
+};
+
+function DataManagementSection() {
+  const preview = useServerFn(getResetPreview);
+  const runResetFn = useServerFn(runReset);
+  const audit = useServerFn(listAuditLog);
+  const tm = useTestMode();
+
+  const [dbCounts, setDbCounts] = useState<{ gmailMessages: number; gmailPollStates: number; gmailConnections: number; auditRows: number } | null>(null);
+  const [phase, setPhase] = useState<Phase>({ step: "idle" });
+  type AuditRow = {
+    id: string; actor_name: string | null; actor_email: string | null; actor_role: string | null;
+    action: string; reset_type: string | null; affected_records: unknown;
+    notes: string | null; created_at: string;
+  };
+  const [auditRows, setAuditRows] = useState<AuditRow[]>([]);
+
+  const refresh = useCallback(async () => {
+    try {
+      const [p, a] = await Promise.all([preview(), audit()]);
+      setDbCounts(p);
+      setAuditRows(a.rows as AuditRow[]);
+    } catch { /* ignore — likely permission denied on non-exec */ }
+  }, [preview, audit]);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const overlayRows = workspaceOverrideCount();
+  const activityCounts = workspaceActivityCounts(tm.sessionId);
+  const testCreators = useMemo(
+    () => CREATORS.filter((c) => isTestCreatorId(c.id, c.name)),
+    [],
+  );
+
+  function downloadBackup(scope: ResetScope): { fileName: string; sizeBytes: number } {
+    const snapshot = {
+      generatedAt: new Date().toISOString(),
+      scope,
+      testMode: tm,
+      dbCounts,
+      workspaceOverrides: exportWorkspaceSnapshot(),
+    };
+    const text = JSON.stringify(snapshot, null, 2);
+    const blob = new Blob([text], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const fileName = `survival-tabs-backup-${scope}-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.json`;
+    const a = document.createElement("a");
+    a.href = url; a.download = fileName; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5_000);
+    return { fileName, sizeBytes: new Blob([text]).size };
+  }
+
+  async function executeReset(scope: ResetScope) {
+    setPhase({ step: "running", scope });
+    try {
+      const backup = downloadBackup(scope);
+      const testIds = scope === "test_creators" ? testCreators.map((c) => c.id) : undefined;
+      const overlayRowsAffected =
+        scope === "test_creators" ? testIds!.filter((id) => overlayRows > 0).length
+        : scope === "test_activity" ? activityCounts.test
+        : overlayRows;
+
+      // Server: gmail_messages / poll_state / audit log
+      const res = await runResetFn({
+        data: { scope, testCreatorIds: testIds, overlayRowsAffected, backupSummary: backup },
+      });
+
+      // Client-side localStorage cleanup
+      if (scope === "test_activity") {
+        // Only nuke test-tagged activities. Real work stays.
+        clearTestActivities(tm.sessionId);
+      } else if (scope === "test_creators") {
+        clearWorkspaceForIds(testIds!);
+      } else if (scope === "full") {
+        clearAllWorkspace();
+      }
+
+      setPhase({ step: "done", scope, affected: res.affected });
+      await refresh();
+    } catch (e) {
+      setPhase({ step: "error", scope, message: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-border bg-card p-6">
+      <div className="flex items-start gap-4">
+        <div className="grid h-12 w-12 place-items-center rounded-lg bg-amber-50">
+          <ShieldAlert className="h-6 w-6 text-amber-700" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-3">
+            <h2 className="font-display text-lg">Data Management</h2>
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-amber-900">Executive Admin</span>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Safely remove data generated during testing and return the operational workflow to a clean starting state.
+            Nothing here deletes the imported creator database, authentication, roles, Gmail OAuth client, or team configuration.
+          </p>
+
+          {/* Live counts */}
+          <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+            <CountTile label="Workspace overrides" value={overlayRows} sub="localStorage" />
+            <CountTile label="Cached Gmail messages" value={dbCounts?.gmailMessages ?? "…"} sub="database" />
+            <CountTile label="Gmail poll checkpoints" value={dbCounts?.gmailPollStates ?? "…"} sub="database" />
+            <CountTile label="Test-tagged activities" value={activityCounts.test} sub={`of ${activityCounts.total} total`} />
+          </div>
+
+          {/* Gmail warning */}
+          <div className="mt-4 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              Emails already sent through Gmail cannot be removed from the recipient's inbox.
+              Resetting removes only the CRM copy and test workflow data. Gmail account connections are preserved
+              — you stay signed in and don't need to reconnect.
+            </div>
+          </div>
+
+          {/* Options */}
+          <div className="mt-5 space-y-3">
+            <ResetOptionCard
+              scope="test_activity"
+              onPreview={() => setPhase({ step: "review", scope: "test_activity" })}
+              recommended
+            />
+            <ResetOptionCard
+              scope="test_creators"
+              onPreview={() => setPhase({ step: "review", scope: "test_creators" })}
+              extra={`${testCreators.length} test creator${testCreators.length === 1 ? "" : "s"} currently match this filter.`}
+            />
+            <ResetOptionCard
+              scope="full"
+              onPreview={() => setPhase({ step: "review", scope: "full" })}
+              danger
+            />
+          </div>
+
+          {/* Confirm flow */}
+          {phase.step !== "idle" ? (
+            <ConfirmPanel
+              phase={phase}
+              onClose={() => setPhase({ step: "idle" })}
+              onProceed={(scope) => setPhase({ step: "confirm", scope, typed: "" })}
+              onTypeChange={(scope, v) => setPhase({ step: "confirm", scope, typed: v })}
+              onConfirm={(scope) => executeReset(scope)}
+              testCreatorCount={testCreators.length}
+              overlayRows={overlayRows}
+              activityCounts={activityCounts}
+              dbCounts={dbCounts}
+            />
+          ) : null}
+
+          {/* Audit log */}
+          <div className="mt-8">
+            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
+              <History className="h-4 w-4" /> Admin audit log
+              <span className="text-xs font-normal text-muted-foreground">
+                ({auditRows.length === 50 ? "50+" : auditRows.length} recent events)
+              </span>
+            </div>
+            {auditRows.length === 0 ? (
+              <div className="rounded-md border border-dashed border-border p-4 text-xs text-muted-foreground">
+                No admin actions recorded yet.
+              </div>
+            ) : (
+              <div className="overflow-hidden rounded-md border border-border">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-secondary text-muted-foreground">
+                    <tr>
+                      <th className="px-3 py-2">When</th>
+                      <th className="px-3 py-2">Who</th>
+                      <th className="px-3 py-2">Action</th>
+                      <th className="px-3 py-2">Affected</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {auditRows.map((r) => (
+                      <tr key={r.id}>
+                        <td className="px-3 py-2 text-muted-foreground">{new Date(r.created_at).toLocaleString()}</td>
+                        <td className="px-3 py-2">
+                          <div>{r.actor_name ?? r.actor_email ?? "—"}</div>
+                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{r.actor_role ?? ""}</div>
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="font-medium">{r.action}</div>
+                          {r.reset_type ? <div className="text-[10px] text-muted-foreground">{r.reset_type}</div> : null}
+                        </td>
+                        <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">
+                          {Object.entries((r.affected_records as Record<string, unknown>) || {})
+                            .map(([k, v]) => `${k}: ${String(v)}`)
+                            .join(" · ")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
-
-            {msg ? <p className="mt-3 text-xs text-muted-foreground">{msg}</p> : null}
           </div>
         </div>
-      </section>
+      </div>
+    </section>
+  );
+}
 
-      <section className="rounded-xl border border-border bg-card p-6">
-        <h2 className="font-display text-lg">Profile</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Managed via Google sign-in.</p>
-        {auth.status === "authenticated" ? (
-          <div className="mt-3 text-sm">
-            <div><span className="text-muted-foreground">Name:</span> {auth.profile.fullName}</div>
-            <div><span className="text-muted-foreground">Email:</span> {auth.profile.email}</div>
-            <div><span className="text-muted-foreground">Role:</span> {auth.profile.roleLabel}</div>
-          </div>
-        ) : null}
-      </section>
+function CountTile({ label, value, sub }: { label: string; value: number | string; sub: string }) {
+  return (
+    <div className="rounded-md border border-border bg-background p-3">
+      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="mt-0.5 font-display text-2xl leading-none text-foreground">{value}</div>
+      <div className="mt-1 text-[10px] text-muted-foreground">{sub}</div>
     </div>
   );
+}
+
+function ResetOptionCard({
+  scope, onPreview, recommended, danger, extra,
+}: {
+  scope: ResetScope;
+  onPreview: () => void;
+  recommended?: boolean;
+  danger?: boolean;
+  extra?: string;
+}) {
+  return (
+    <div className={`rounded-md border p-4 ${danger ? "border-red-200 bg-red-50/40" : "border-border bg-background"}`}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-medium">{SCOPE_TITLE[scope]}</h3>
+            {recommended ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-800">Recommended</span> : null}
+            {danger ? <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-red-800">Requires typed confirmation</span> : null}
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">{SCOPE_DESC[scope]}</p>
+          {extra ? <p className="mt-1 text-[11px] text-muted-foreground">{extra}</p> : null}
+        </div>
+        <button
+          onClick={onPreview}
+          className="shrink-0 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium hover:bg-secondary"
+        >
+          Preview Reset
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ConfirmPanel({
+  phase, onClose, onProceed, onTypeChange, onConfirm,
+  testCreatorCount, overlayRows, activityCounts, dbCounts,
+}: {
+  phase: Exclude<Phase, { step: "idle" }>;
+  onClose: () => void;
+  onProceed: (scope: ResetScope) => void;
+  onTypeChange: (scope: ResetScope, v: string) => void;
+  onConfirm: (scope: ResetScope) => void;
+  testCreatorCount: number;
+  overlayRows: number;
+  activityCounts: { total: number; test: number };
+  dbCounts: { gmailMessages: number; gmailPollStates: number; gmailConnections: number; auditRows: number } | null;
+}) {
+  const { scope } = phase;
+  const willAffect = describeAffect(scope, { testCreatorCount, overlayRows, activityCounts, dbCounts });
+
+  return (
+    <div className="mt-5 rounded-lg border-2 border-dashed border-amber-300 bg-amber-50/50 p-4">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2 text-sm font-medium text-amber-900">
+          <ShieldAlert className="h-4 w-4" /> {SCOPE_TITLE[scope]}
+        </div>
+        <button onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground">Cancel</button>
+      </div>
+
+      {/* Preview step */}
+      {phase.step === "review" ? (
+        <>
+          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="rounded-md border border-border bg-background p-3">
+              <div className="text-[11px] uppercase tracking-wide text-red-700">Will be removed</div>
+              <ul className="mt-1 space-y-1 text-xs">
+                {willAffect.remove.map((r, i) => (<li key={i} className="flex items-start gap-1.5"><Trash2 className="mt-0.5 h-3 w-3 shrink-0 text-red-600" /><span>{r}</span></li>))}
+              </ul>
+            </div>
+            <div className="rounded-md border border-border bg-background p-3">
+              <div className="text-[11px] uppercase tracking-wide text-emerald-700">Will be preserved</div>
+              <ul className="mt-1 space-y-1 text-xs">
+                {willAffect.keep.map((r, i) => (<li key={i} className="flex items-start gap-1.5"><CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0 text-emerald-600" /><span>{r}</span></li>))}
+              </ul>
+            </div>
+          </div>
+          <div className="mt-3 flex items-start gap-2 rounded-md bg-background p-2 text-xs text-muted-foreground">
+            <Download className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>A JSON backup of the current workspace state will download to your machine before deletion runs.</span>
+          </div>
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={() => onProceed(scope)}
+              className="inline-flex items-center gap-2 rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
+            >
+              Continue to confirmation
+            </button>
+          </div>
+        </>
+      ) : null}
+
+      {/* Confirm step */}
+      {phase.step === "confirm" ? (
+        <>
+          <div className="mt-3 text-xs text-muted-foreground">
+            To proceed, type <span className="font-mono font-semibold text-foreground">RESET TEST DATA</span> below.
+          </div>
+          <input
+            autoFocus
+            value={phase.typed}
+            onChange={(e) => onTypeChange(scope, e.target.value)}
+            placeholder="RESET TEST DATA"
+            className="mt-2 w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+          />
+          <div className="mt-3 flex items-center justify-end gap-2">
+            <button onClick={onClose} className="rounded-md border border-border bg-background px-3 py-1.5 text-xs hover:bg-secondary">Cancel</button>
+            <button
+              onClick={() => onConfirm(scope)}
+              disabled={phase.typed.trim() !== "RESET TEST DATA"}
+              className="inline-flex items-center gap-2 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+            >
+              <Trash2 className="h-4 w-4" /> Download backup & run reset
+            </button>
+          </div>
+        </>
+      ) : null}
+
+      {phase.step === "running" ? (
+        <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> Running {SCOPE_TITLE[scope]}…
+        </div>
+      ) : null}
+
+      {phase.step === "done" ? (
+        <>
+          <div className="mt-3 flex items-start gap-2 rounded-md bg-emerald-50 p-3 text-xs text-emerald-900">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <div className="font-medium">Reset complete.</div>
+              <div className="mt-1 font-mono text-[11px]">
+                {Object.entries(phase.affected).map(([k, v]) => `${k}: ${v}`).join(" · ")}
+              </div>
+              <div className="mt-2">
+                Dashboard metrics and creator queues have already refreshed. Reload the app to fully rehydrate cached views.
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 flex justify-end gap-2">
+            <button onClick={onClose} className="rounded-md border border-border bg-background px-3 py-1.5 text-xs hover:bg-secondary">Close</button>
+            <button
+              onClick={() => window.location.reload()}
+              className="rounded-md bg-[color:var(--forest)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-95"
+            >
+              Reload application
+            </button>
+          </div>
+        </>
+      ) : null}
+
+      {phase.step === "error" ? (
+        <div className="mt-3 flex items-start gap-2 rounded-md bg-red-50 p-3 text-xs text-red-900">
+          <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <div className="font-medium">Reset failed.</div>
+            <div className="mt-1 font-mono text-[11px]">{phase.message}</div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function describeAffect(
+  scope: ResetScope,
+  ctx: {
+    testCreatorCount: number;
+    overlayRows: number;
+    activityCounts: { total: number; test: number };
+    dbCounts: { gmailMessages: number; gmailPollStates: number } | null;
+  },
+): { remove: string[]; keep: string[] } {
+  const gm = ctx.dbCounts?.gmailMessages ?? 0;
+  const ps = ctx.dbCounts?.gmailPollStates ?? 0;
+  if (scope === "test_activity") {
+    return {
+      remove: [
+        `${ctx.activityCounts.test} test-tagged activity entr${ctx.activityCounts.test === 1 ? "y" : "ies"} (of ${ctx.activityCounts.total} total)`,
+        `${gm} cached Gmail message${gm === 1 ? "" : "s"} across the team`,
+        `${ps} Gmail poll checkpoint${ps === 1 ? "" : "s"}`,
+        "Test drafts stored inside the app",
+      ],
+      keep: [
+        "Every creator's imported spreadsheet fields (email, name, research notes, AI recommendation, ownership, contact history from the import)",
+        "Real (non-test) activity entries recorded outside Test Mode",
+        "Google authentication, team identities, roles, and Gmail account connections",
+        "Knowledge Center content and creator profiles",
+      ],
+    };
+  }
+  if (scope === "test_creators") {
+    return {
+      remove: [
+        `${ctx.testCreatorCount} test creator${ctx.testCreatorCount === 1 ? "" : "s"} matching TEST- / "TEST –" filters`,
+        "All workflow overrides, activity, notes, and cached Gmail messages tied to those test creators",
+      ],
+      keep: [
+        "Every real imported creator and their entire history",
+        "Team identities, roles, Gmail connections, Knowledge Center",
+      ],
+    };
+  }
+  // full
+  return {
+    remove: [
+      `${ctx.overlayRows} workspace override${ctx.overlayRows === 1 ? "" : "s"} across all creators (every workflow change goes back to imported values)`,
+      `${gm} cached Gmail message${gm === 1 ? "" : "s"}`,
+      `${ps} Gmail poll checkpoint${ps === 1 ? "" : "s"}`,
+      "Cached dashboard metrics and notifications",
+    ],
+    keep: [
+      "Imported creator directory + all original spreadsheet fields",
+      "Research notes, AI recommendations, contact info",
+      "Google authentication, roles, team configuration",
+      "Gmail OAuth client and each teammate's Gmail connection",
+      "Knowledge Center content",
+    ],
+  };
 }

@@ -6,6 +6,7 @@
 // tables so we can swap the store later without touching the UI.
 import { useSyncExternalStore } from "react";
 import { CREATORS, type CreatorRow, type OutreachOwner } from "./creator-partnerships";
+import { getTestMode } from "./test-mode";
 
 // ---------- Types (future Supabase schema) ----------
 export type OutreachStatus =
@@ -47,6 +48,9 @@ export interface Activity {
   kind: ActivityKind;
   action: string; // short label
   notes?: string;
+  // Test-mode tagging — set automatically by addActivity when Test Mode is on.
+  isTest?: boolean;
+  testSessionId?: string | null;
 }
 
 // ---------- Current actor injection ----------
@@ -306,12 +310,15 @@ export function addActivity(c: CreatorRow, ev: Omit<Activity, "id">) {
   const base = defaultsFor(c);
   const existing = cache[c.id]?.activity ?? [];
   const actor = getCurrentActor();
+  const tm = getTestMode();
   const enriched: Omit<Activity, "id"> = {
     ...ev,
     time: ev.time ?? nowTime(),
     actorName: ev.actorName ?? (actor?.id === ev.actor ? actor.name : undefined),
     actorRoleLabel: ev.actorRoleLabel ?? (actor?.id === ev.actor ? actor.roleLabel : undefined),
     actorEmail: ev.actorEmail ?? (actor?.id === ev.actor ? actor.email : undefined),
+    isTest: ev.isTest ?? tm.enabled,
+    testSessionId: ev.testSessionId ?? tm.sessionId,
   };
   const nextExtra: Activity[] = [
     ...existing,
@@ -349,6 +356,79 @@ export function addActivity(c: CreatorRow, ev: Omit<Activity, "id">) {
   }
   // suppress unused base
   void base;
+}
+
+// ---------- Reset / backup helpers (Settings → Data Management) ----------
+
+/** Full snapshot of every override — used to build the pre-reset JSON backup. */
+export function exportWorkspaceSnapshot(): StoreShape {
+  return JSON.parse(JSON.stringify(cache)) as StoreShape;
+}
+
+/** True if the creator id looks like a placeholder test creator (TEST-… or "TEST –" prefix). */
+export function isTestCreatorId(id: string, name?: string): boolean {
+  if (id.startsWith("TEST-")) return true;
+  if (name && /^TEST\s*[–-]/i.test(name)) return true;
+  return false;
+}
+
+/** Number of creators with a persisted override row. */
+export function workspaceOverrideCount(): number {
+  return Object.keys(cache).length;
+}
+
+/** Number of activities across all overrides. Splits test / non-test if a session id is provided. */
+export function workspaceActivityCounts(sessionId?: string | null): { total: number; test: number } {
+  let total = 0;
+  let test = 0;
+  for (const k of Object.keys(cache)) {
+    const acts = cache[k].activity ?? [];
+    total += acts.length;
+    for (const a of acts) {
+      if (a.isTest && (sessionId ? a.testSessionId === sessionId : true)) test++;
+    }
+  }
+  return { total, test };
+}
+
+/** Reset every operational override, restoring all creators to their imported values. */
+export function clearAllWorkspace() {
+  cache = {};
+  emit();
+}
+
+/** Remove overrides for a set of creator ids (used by "Delete Test Creators"). */
+export function clearWorkspaceForIds(ids: string[]) {
+  const set = new Set(ids);
+  const next: StoreShape = {};
+  for (const k of Object.keys(cache)) {
+    if (!set.has(k)) next[k] = cache[k];
+  }
+  cache = next;
+  emit();
+}
+
+/**
+ * Strip out only the activities tagged with a given test session id
+ * (or every isTest=true row if no id given). Preserves the underlying overrides
+ * so real work done during testing keeps its non-test entries.
+ */
+export function clearTestActivities(sessionId?: string | null): number {
+  let removed = 0;
+  const next: StoreShape = {};
+  for (const k of Object.keys(cache)) {
+    const ov = cache[k];
+    const acts = ov.activity ?? [];
+    const kept = acts.filter((a) => {
+      const isMatch = a.isTest && (sessionId ? a.testSessionId === sessionId : true);
+      if (isMatch) removed += 1;
+      return !isMatch;
+    });
+    next[k] = { ...ov, activity: kept };
+  }
+  cache = next;
+  emit();
+  return removed;
 }
 
 // ---------- Dashboard derivations ----------
