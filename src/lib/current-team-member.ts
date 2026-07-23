@@ -1,12 +1,13 @@
-// Mock authentication for the Creator Partnerships workspace.
-// Stores the "logged-in" team member in localStorage so the personalized
-// dashboard, My Queue, notifications and activity feed re-render when the
-// user switches. Shape mirrors what a future Supabase `auth.users` +
-// `team_members` join would return so the UI can swap the source without
-// changes.
-import { useSyncExternalStore } from "react";
+// Adapter over the real authenticated user (src/lib/current-user.ts).
+// Preserves the TeamMember shape the Creator Partnerships UI already consumes
+// so we don't have to touch the personalized dashboard / queues logic.
+//
+// The mock switcher has been removed — `useCurrentTeamMember` returns the
+// signed-in Google user's mapped team identity.
+import { useAuth } from "./current-user";
+import type { AppRole, TeamMemberId } from "./permissions";
 
-export type TeamMemberId = "SETH" | "RENA" | "VINA" | "PERRY";
+export type { TeamMemberId };
 
 export interface TeamMember {
   id: TeamMemberId;
@@ -14,50 +15,46 @@ export interface TeamMember {
   title: string;
   initials: string;
   role: "researcher" | "team_lead" | "outreach" | "executive";
+  email?: string;
+  avatarUrl?: string | null;
 }
 
+const ROLE_TO_LEGACY: Record<AppRole, TeamMember["role"]> = {
+  research_manager:        "researcher",
+  partnership_manager:     "team_lead",
+  partnership_coordinator: "outreach",
+  executive:               "executive",
+};
+
+const TITLE_BY_ID: Record<TeamMemberId, string> = {
+  SETH:  "Research & AI",
+  RENA:  "Partnership Manager",
+  VINA:  "Outreach & Follow-up",
+  PERRY: "Executive Oversight",
+};
+
+// Kept exported (some places imported it) but no longer used for a switcher.
 export const TEAM_MEMBERS: TeamMember[] = [
-  { id: "SETH",  name: "Seth",  title: "Research & AI",       initials: "SE", role: "researcher" },
-  { id: "RENA",  name: "Rena",  title: "Team Lead",           initials: "RE", role: "team_lead"  },
-  { id: "VINA",  name: "Vina",  title: "Outreach & Follow-up",initials: "VI", role: "outreach"   },
-  { id: "PERRY", name: "Perry", title: "Executive Oversight", initials: "PE", role: "executive"  },
+  { id: "SETH",  name: "Seth",  title: TITLE_BY_ID.SETH,  initials: "SE", role: "researcher" },
+  { id: "RENA",  name: "Rena",  title: TITLE_BY_ID.RENA,  initials: "RE", role: "team_lead"  },
+  { id: "VINA",  name: "Vina",  title: TITLE_BY_ID.VINA,  initials: "VI", role: "outreach"   },
+  { id: "PERRY", name: "Perry", title: TITLE_BY_ID.PERRY, initials: "PE", role: "executive"  },
 ];
 
-const LS_KEY = "st.creator-workspace.current-user.v1";
-
-function readLS(): TeamMemberId {
-  if (typeof window === "undefined") return "RENA";
-  try {
-    const raw = window.localStorage.getItem(LS_KEY);
-    if (raw && TEAM_MEMBERS.some((t) => t.id === raw)) return raw as TeamMemberId;
-  } catch { /* ignore */ }
-  return "RENA";
-}
-
-let cache: TeamMemberId = readLS();
-const listeners = new Set<() => void>();
-
-function emit() {
-  if (typeof window !== "undefined") {
-    try { window.localStorage.setItem(LS_KEY, cache); } catch { /* ignore */ }
-  }
-  listeners.forEach((l) => l());
-}
-
-export function setCurrentTeamMember(id: TeamMemberId) {
-  cache = id;
-  emit();
-}
-
-export function getCurrentTeamMemberId(): TeamMemberId {
-  return cache;
-}
+// Fallback used only during the brief loading tick before auth resolves.
+const FALLBACK: TeamMember = TEAM_MEMBERS[1];
 
 export function useCurrentTeamMember(): TeamMember {
-  const id = useSyncExternalStore(
-    (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
-    () => cache,
-    () => "RENA" as TeamMemberId,
-  );
-  return TEAM_MEMBERS.find((t) => t.id === id) ?? TEAM_MEMBERS[1];
+  const auth = useAuth();
+  const p = auth.status === "authenticated" ? auth.profile : null;
+  if (!p || !p.teamId || !p.role) return FALLBACK;
+  return {
+    id: p.teamId,
+    name: p.fullName || TITLE_BY_ID[p.teamId],
+    title: TITLE_BY_ID[p.teamId],
+    initials: p.initials,
+    role: ROLE_TO_LEGACY[p.role],
+    email: p.email,
+    avatarUrl: p.avatarUrl,
+  };
 }

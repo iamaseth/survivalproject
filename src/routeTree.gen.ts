@@ -20,6 +20,7 @@ import { Route as EmailRouteImport } from './routes/email'
 import { Route as DecisionsRouteImport } from './routes/decisions'
 import { Route as CreatorsRouteImport } from './routes/creators'
 import { Route as CommentsRouteImport } from './routes/comments'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AssetsRouteImport } from './routes/assets'
 import { Route as ArchiveRouteImport } from './routes/archive'
 import { Route as AdminRouteImport } from './routes/admin'
@@ -83,6 +84,11 @@ const CommentsRoute = CommentsRouteImport.update({
   path: '/comments',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AssetsRoute = AssetsRouteImport.update({
   id: '/assets',
   path: '/assets',
@@ -124,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/archive': typeof ArchiveRoute
   '/assets': typeof AssetsRouteWithChildren
+  '/auth': typeof AuthRoute
   '/comments': typeof CommentsRoute
   '/creators': typeof CreatorsRouteWithChildren
   '/decisions': typeof DecisionsRoute
@@ -144,6 +151,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/archive': typeof ArchiveRoute
   '/assets': typeof AssetsRouteWithChildren
+  '/auth': typeof AuthRoute
   '/comments': typeof CommentsRoute
   '/creators': typeof CreatorsRouteWithChildren
   '/decisions': typeof DecisionsRoute
@@ -165,6 +173,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/archive': typeof ArchiveRoute
   '/assets': typeof AssetsRouteWithChildren
+  '/auth': typeof AuthRoute
   '/comments': typeof CommentsRoute
   '/creators': typeof CreatorsRouteWithChildren
   '/decisions': typeof DecisionsRoute
@@ -187,6 +196,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/archive'
     | '/assets'
+    | '/auth'
     | '/comments'
     | '/creators'
     | '/decisions'
@@ -207,6 +217,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/archive'
     | '/assets'
+    | '/auth'
     | '/comments'
     | '/creators'
     | '/decisions'
@@ -227,6 +238,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/archive'
     | '/assets'
+    | '/auth'
     | '/comments'
     | '/creators'
     | '/decisions'
@@ -248,6 +260,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   ArchiveRoute: typeof ArchiveRoute
   AssetsRoute: typeof AssetsRouteWithChildren
+  AuthRoute: typeof AuthRoute
   CommentsRoute: typeof CommentsRoute
   CreatorsRoute: typeof CreatorsRouteWithChildren
   DecisionsRoute: typeof DecisionsRoute
@@ -338,6 +351,13 @@ declare module '@tanstack/react-router' {
       path: '/comments'
       fullPath: '/comments'
       preLoaderRoute: typeof CommentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/assets': {
@@ -432,6 +452,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   ArchiveRoute: ArchiveRoute,
   AssetsRoute: AssetsRouteWithChildren,
+  AuthRoute: AuthRoute,
   CommentsRoute: CommentsRoute,
   CreatorsRoute: CreatorsRouteWithChildren,
   DecisionsRoute: DecisionsRoute,

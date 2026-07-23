@@ -38,11 +38,34 @@ export type ActivityKind =
 
 export interface Activity {
   id: string;
-  at: string; // ISO date
+  at: string; // ISO date  (yyyy-mm-dd)
+  time?: string; // HH:mm — populated for real-time entries
   actor: "SETH" | "RENA" | "VINA" | "PERRY" | "SYSTEM";
+  actorName?: string;        // "Vina Nguyen"
+  actorRoleLabel?: string;   // "Partnership Coordinator"
+  actorEmail?: string;
   kind: ActivityKind;
   action: string; // short label
   notes?: string;
+}
+
+// ---------- Current actor injection ----------
+// AppShell pushes the signed-in user here after Google auth resolves so the
+// workspace store can auto-populate created_by / last_modified_by / activity
+// author fields without every call-site knowing about auth.
+export interface CurrentActor {
+  id: "SETH" | "RENA" | "VINA" | "PERRY";
+  name: string;
+  roleLabel: string;
+  email?: string;
+}
+let currentActor: CurrentActor | null = null;
+export function setCurrentActor(a: CurrentActor | null) { currentActor = a; }
+export function getCurrentActor(): CurrentActor | null { return currentActor; }
+
+function nowTime() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
 export interface CreatorWorkspace {
@@ -84,6 +107,16 @@ export interface CreatorWorkspace {
   aiRecommendation: string | null;
   researchNotes: string | null;
   executiveNotes: string | null; // Perry
+
+  // Ownership (auto-populated from the signed-in user)
+  createdBy?: string | null;         // display name
+  createdByRole?: string | null;
+  createdAt?: string | null;         // ISO date
+  lastModifiedBy?: string | null;
+  lastModifiedByRole?: string | null;
+  lastModifiedAt?: string | null;    // ISO datetime
+  lastActivityBy?: string | null;
+  supervisor?: string | null;        // Rena for coordinators, Perry for managers
 
   // Activity timeline
   activity: Activity[];
@@ -253,18 +286,38 @@ export function useWorkspace(c: CreatorRow): CreatorWorkspace {
 }
 
 export function updateWorkspace(id: string, patch: Overrides) {
-  cache = { ...cache, [id]: { ...(cache[id] ?? {}), ...patch } };
+  const stamped: Overrides = { ...patch };
+  const actor = getCurrentActor();
+  if (actor) {
+    stamped.lastModifiedBy = actor.name;
+    stamped.lastModifiedByRole = actor.roleLabel;
+    stamped.lastModifiedAt = new Date().toISOString();
+    if (!cache[id]?.createdBy) {
+      stamped.createdBy = actor.name;
+      stamped.createdByRole = actor.roleLabel;
+      stamped.createdAt = new Date().toISOString().slice(0, 10);
+    }
+  }
+  cache = { ...cache, [id]: { ...(cache[id] ?? {}), ...stamped } };
   emit();
 }
 
 export function addActivity(c: CreatorRow, ev: Omit<Activity, "id">) {
   const base = defaultsFor(c);
   const existing = cache[c.id]?.activity ?? [];
+  const actor = getCurrentActor();
+  const enriched: Omit<Activity, "id"> = {
+    ...ev,
+    time: ev.time ?? nowTime(),
+    actorName: ev.actorName ?? (actor?.id === ev.actor ? actor.name : undefined),
+    actorRoleLabel: ev.actorRoleLabel ?? (actor?.id === ev.actor ? actor.roleLabel : undefined),
+    actorEmail: ev.actorEmail ?? (actor?.id === ev.actor ? actor.email : undefined),
+  };
   const nextExtra: Activity[] = [
     ...existing,
-    { ...ev, id: `${c.id}-a-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` },
+    { ...enriched, id: `${c.id}-a-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` },
   ];
-  updateWorkspace(c.id, { activity: nextExtra });
+  updateWorkspace(c.id, { activity: nextExtra, lastActivityBy: enriched.actorName ?? ev.actor });
   // touch derived counts too
   if (ev.kind === "email_sent") {
     updateWorkspace(c.id, {
