@@ -793,15 +793,15 @@ function GmailOpsSubsection() {
           setPoll(null);
         }
       } catch { /* ignore */ }
-      setRecon(previewReconcileWaitingForReply(CREATORS));
+      setRecon(previewReconcileWaitingForReply());
     })();
   }, [listErrors, getStatus, tick]);
 
   const runRecon = () => {
-    const result = reconcileWaitingForReply(CREATORS);
+    const result = reconcileWaitingForReply();
     setTick((n) => n + 1);
     // eslint-disable-next-line no-alert
-    alert(`Reconciled ${result.cleared} stale "Waiting for Reply" override${result.cleared === 1 ? "" : "s"}.`);
+    alert(`Reconciled ${result.corrected} stale "Waiting for Reply" override${result.corrected === 1 ? "" : "s"}.`);
   };
 
   return (
@@ -841,13 +841,13 @@ function GmailOpsSubsection() {
             </p>
             {recon ? (
               <div className="mt-2 text-xs">
-                <span className="font-medium">{recon.stale.length}</span> stale override{recon.stale.length === 1 ? "" : "s"} found
-                {recon.stale.length > 0 ? (
+                <span className="font-medium">{recon.staleOverrides.length}</span> stale override{recon.staleOverrides.length === 1 ? "" : "s"} found
+                {recon.staleOverrides.length > 0 ? (
                   <ul className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
-                    {recon.stale.slice(0, 6).map((s) => (
+                    {recon.staleOverrides.slice(0, 6).map((s) => (
                       <li key={s.id}>· {s.name} <span className="opacity-60">({s.id})</span></li>
                     ))}
-                    {recon.stale.length > 6 ? <li>· …and {recon.stale.length - 6} more</li> : null}
+                    {recon.staleOverrides.length > 6 ? <li>· …and {recon.staleOverrides.length - 6} more</li> : null}
                   </ul>
                 ) : null}
               </div>
@@ -855,7 +855,7 @@ function GmailOpsSubsection() {
           </div>
           <button
             onClick={runRecon}
-            disabled={!recon || recon.stale.length === 0}
+            disabled={!recon || recon.staleOverrides.length === 0}
             className="shrink-0 rounded-md bg-[color:var(--forest)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-95 disabled:opacity-50"
           >
             Reconcile
