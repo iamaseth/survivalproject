@@ -444,6 +444,9 @@ function DataManagementSection() {
             </div>
           </div>
 
+          <GmailOpsSubsection />
+
+
           {/* Options */}
           <div className="mt-5 space-y-3">
             <ResetOptionCard
