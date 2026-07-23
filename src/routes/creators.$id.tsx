@@ -1,5 +1,7 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import {
   creatorById,
   OUTREACH_TEMPLATES,
@@ -16,6 +18,8 @@ import {
   useWorkspace,
   updateWorkspace,
   addActivity,
+  clearWorkspaceForIds,
+  isTestCreatorId,
   type Activity,
   type OutreachStatus,
   type DeliveryStatus,
@@ -33,13 +37,17 @@ import {
 } from "@/lib/creator-workflow";
 import { PageHeader } from "@/components/PageHeader";
 import { useCurrentTeamMember } from "@/lib/current-team-member";
-import { ArrowLeft, ExternalLink, Mail, Copy, Send, Truck, ShieldCheck, Clock, AlertCircle, UserCheck, FileText, ListChecks, StickyNote, Compass, Activity as ActivityIcon, Heart, CalendarClock } from "lucide-react";
+import { ArrowLeft, ExternalLink, Mail, Copy, Send, Truck, ShieldCheck, Clock, AlertCircle, UserCheck, FileText, ListChecks, StickyNote, Compass, Activity as ActivityIcon, Heart, CalendarClock, Trash2, Beaker } from "lucide-react";
 import { GmailPanel } from "@/components/creators/GmailPanel";
+import { deleteTestCreator, getTestCreatorRow, useTestCreators } from "@/lib/test-creators";
+import { purgeTestCreatorArtifacts } from "@/lib/gmail.functions";
+import { useAuth } from "@/lib/current-user";
 
 
 export const Route = createFileRoute("/creators/$id")({
   loader: ({ params }) => {
-    const c = creatorById(params.id);
+    // Real creator OR synthetic TEST creator overlay (localStorage).
+    const c = creatorById(params.id) ?? getTestCreatorRow(params.id);
     if (!c) throw notFound();
     return { creator: c };
   },
@@ -72,6 +80,7 @@ export const Route = createFileRoute("/creators/$id")({
   ),
   component: CreatorDetail,
 });
+
 
 type Tab = "overview" | "assignment" | "outreach" | "email" | "gmail" | "shipping" | "content" | "approval" | "activity" | "notes" | "raw";
 
