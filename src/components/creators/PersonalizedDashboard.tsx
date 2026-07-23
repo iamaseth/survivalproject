@@ -7,8 +7,6 @@ import { Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 import {
   CREATORS,
-  isOverdue,
-  isReadyForOutreach,
   priorityTone,
   type CreatorRow,
 } from "@/lib/creator-partnerships";
