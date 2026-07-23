@@ -1,0 +1,312 @@
+// Creator Partnerships — aligned to "Survival Tabs — Influencer Operating System"
+// Real spreadsheet schema (Master Database, 44 columns) + derived workflow fields.
+import { SEED_CREATORS } from "./creators-seed";
+
+export type CreatorPriority = "🔴 High" | "🟡 Medium" | "🟢 Low" | "⚪ Hold";
+export type OutreachOwner = "RENA" | "VINA" | null;
+export const SUPERVISOR = "RENA" as const;
+
+export type SampleStatus =
+  | "Not Sent"
+  | "Approval Pending"
+  | "Awaiting Address"
+  | "Address Received"
+  | "Shipped"
+  | "Delivered"
+  | "Refused";
+
+export type PerryApproval = "Not Reviewed" | "Approved" | "Changes Requested" | "Declined";
+
+export type ResponseState =
+  | "No Response"
+  | "Waiting Reply"
+  | "Replied — Interested"
+  | "Replied — Declined"
+  | "Bounced";
+
+export interface OutreachEvent {
+  id: string;
+  at: string; // ISO date
+  actor: "RENA" | "VINA" | "SETH" | "PERRY";
+  channel: "Email" | "DM" | "Call" | "Note";
+  subject?: string;
+  body: string;
+}
+
+export interface CreatorRow {
+  // Raw sheet fields (44)
+  id: string;
+  name: string;
+  segment: string | null;
+  primaryPlatforms: string | null;
+  primarySource: string | null;
+  reachSignal: string | null;
+  email: string | null;
+  contactRoute: string | null;
+  contactConfidence: string | null;
+  researchStatus: string | null;
+  priority: CreatorPriority | null;
+  amazon: string | null;
+  researchNotes: string | null;
+  lastResearched: string | null;
+  sethNextAction: string | null;
+  outreachOwner: OutreachOwner;
+  perryComments: string | null;
+  amazonConfidence: string | null;
+  monetization: string | null;
+  verificationEvidence: string | null;
+  contactedDate: string | null;
+  contactMethod: string | null;
+  responseFollowup: string | null;
+  sampleStatus: string | null;
+  renaNotes: string | null;
+  tuanAffiliateStatus: string | null;
+  creatorCode: string | null;
+  technicalNotes: string | null;
+  recentActivityCheck: string | null;
+  fullVerification: string | null;
+  verificationDate: string | null;
+  followersSignal: string | null;
+  targetAudience: string | null;
+  geography: string | null;
+  geographyConfidence: string | null;
+  facebook: string | null;
+  instagram: string | null;
+  tiktok: string | null;
+  youtube: string | null;
+  otherPlatform: string | null;
+  recommendedOffer: string | null;
+  partnershipTier: string | null;
+  offerConfidence: string | null;
+  offerReasoning: string | null;
+
+  // Derived / workflow additions
+  supervisor: "RENA";
+  perryApproval: PerryApproval;
+  responseState: ResponseState;
+  normalizedSampleStatus: SampleStatus;
+  nextFollowUpDate: string | null;
+  outreachHistory: OutreachEvent[];
+}
+
+// ------------ Normalization helpers ------------
+function normSample(v: string | null): SampleStatus {
+  if (!v) return "Not Sent";
+  const s = v.toLowerCase();
+  if (s.includes("delivered")) return "Delivered";
+  if (s.includes("shipped") || s.includes("in transit")) return "Shipped";
+  if (s.includes("address received") || s.includes("addr received")) return "Address Received";
+  if (s.includes("await") && s.includes("address")) return "Awaiting Address";
+  if (s.includes("approval")) return "Approval Pending";
+  if (s.includes("refus") || s.includes("declin")) return "Refused";
+  return "Not Sent";
+}
+
+function normResponse(v: string | null): ResponseState {
+  if (!v) return "No Response";
+  const s = v.toLowerCase();
+  if (s.includes("bounce")) return "Bounced";
+  if (s.includes("declin") || s.includes("not interested") || s.includes("pass")) return "Replied — Declined";
+  if (s.includes("interest") || s.includes("reply") || s.includes("replied") || s.includes("yes")) return "Replied — Interested";
+  if (s.includes("wait") || s.includes("await") || s.includes("pending") || s.includes("follow")) return "Waiting Reply";
+  return "Waiting Reply";
+}
+
+function normPerry(v: string | null): PerryApproval {
+  if (!v) return "Not Reviewed";
+  const s = v.toLowerCase();
+  if (s.includes("approve")) return "Approved";
+  if (s.includes("chang") || s.includes("revise")) return "Changes Requested";
+  if (s.includes("declin") || s.includes("no ")) return "Declined";
+  return "Not Reviewed";
+}
+
+function addDays(iso: string | null, days: number): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function buildHistory(r: {
+  id: string;
+  contactedDate: string | null;
+  contactMethod: string | null;
+  outreachOwner: OutreachOwner;
+  responseFollowup: string | null;
+  sampleStatus: string | null;
+  renaNotes: string | null;
+}): OutreachEvent[] {
+  const events: OutreachEvent[] = [];
+  const actor = (r.outreachOwner ?? "RENA") as "RENA" | "VINA";
+  if (r.contactedDate) {
+    events.push({
+      id: `${r.id}-o1`,
+      at: r.contactedDate,
+      actor,
+      channel: (r.contactMethod?.toLowerCase().includes("dm") ? "DM" : "Email") as "Email" | "DM",
+      subject: "Initial outreach — Survival Tabs sample offer",
+      body: r.renaNotes ?? "Sent initial outreach using approved template.",
+    });
+  }
+  if (r.responseFollowup) {
+    events.push({
+      id: `${r.id}-o2`,
+      at: addDays(r.contactedDate, 2) ?? r.contactedDate ?? new Date().toISOString().slice(0, 10),
+      actor,
+      channel: "Note",
+      body: `Response / follow-up: ${r.responseFollowup}`,
+    });
+  }
+  if (r.sampleStatus) {
+    events.push({
+      id: `${r.id}-o3`,
+      at: addDays(r.contactedDate, 4) ?? new Date().toISOString().slice(0, 10),
+      actor,
+      channel: "Note",
+      body: `Sample status: ${r.sampleStatus}`,
+    });
+  }
+  return events;
+}
+
+// ------------ Load & normalize seed ------------
+export const CREATORS: CreatorRow[] = (SEED_CREATORS as any[]).map((r) => {
+  const owner = (r.outreachOwner ?? null) as OutreachOwner;
+  const priority = (r.priority ?? null) as CreatorPriority | null;
+  const nextFollowUpDate =
+    r.contactedDate && !normResponse(r.responseFollowup).startsWith("Replied")
+      ? addDays(r.contactedDate, 5)
+      : null;
+  return {
+    ...r,
+    priority,
+    outreachOwner: owner,
+    supervisor: "RENA" as const,
+    perryApproval: normPerry(r.perryComments),
+    responseState: normResponse(r.responseFollowup),
+    normalizedSampleStatus: normSample(r.sampleStatus),
+    nextFollowUpDate,
+    outreachHistory: buildHistory(r),
+  } as CreatorRow;
+});
+
+export const creatorById = (id: string) => CREATORS.find((c) => c.id === id);
+
+// ------------ Queues / derived selectors ------------
+export const today = () => new Date().toISOString().slice(0, 10);
+
+export const isOverdue = (c: CreatorRow) =>
+  !!c.nextFollowUpDate && c.nextFollowUpDate < today() && c.responseState !== "Replied — Interested" && c.responseState !== "Replied — Declined";
+
+export const isWaitingReply = (c: CreatorRow) =>
+  !!c.contactedDate && (c.responseState === "Waiting Reply" || c.responseState === "No Response");
+
+export const isReadyForOutreach = (c: CreatorRow) =>
+  !c.contactedDate && c.priority === "🔴 High" && c.perryApproval !== "Declined";
+
+export const needsPerryApproval = (c: CreatorRow) =>
+  c.perryApproval === "Not Reviewed" && (c.priority === "🔴 High" || c.priority === "🟡 Medium");
+
+// ------------ Templates (from Templates sheet) ------------
+export interface OutreachTemplate {
+  id: string;
+  name: string;
+  subject: string;
+  body: string;
+}
+
+export const OUTREACH_TEMPLATES: OutreachTemplate[] = [
+  {
+    id: "initial",
+    name: "Initial outreach",
+    subject: "Survival Tabs — quick intro + complimentary sample",
+    body:
+      "Hi {{name}},\n\nI'm reaching out from Survival Tabs. We make a compact 15-day emergency nutrition tab, and after reviewing your recent {{platform}} work on {{segment}} I thought there might be a natural fit.\n\nWe'd be glad to send a complimentary sample — no posting obligation. If you'd like to try it, just reply with a shipping name, address and phone number for the carrier.\n\nThanks for considering it,\n{{owner}} · Survival Tabs",
+  },
+  {
+    id: "followup",
+    name: "Follow-up",
+    subject: "Following up — Survival Tabs sample",
+    body:
+      "Hi {{name}}, just following up on my note about Survival Tabs. No pressure at all — we would simply be glad to provide more information or arrange a complimentary sample if it is relevant to your content.\n\n— {{owner}}",
+  },
+  {
+    id: "shipping",
+    name: "Shipping details request",
+    subject: "Survival Tabs — sample approved, need shipping details",
+    body:
+      "Thank you. Perry has approved the sample. Please send the preferred recipient name, shipping address and phone number needed by the carrier. We will confirm once shipment is arranged.\n\n— {{owner}}",
+  },
+  {
+    id: "affiliate",
+    name: "Affiliate interest",
+    subject: "Survival Tabs — affiliate arrangement",
+    body:
+      "Thanks for your interest in working together. We can discuss an affiliate arrangement after the initial product review and internal approval. We will confirm the final terms and tracking link before anything goes live.\n\n— {{owner}}",
+  },
+];
+
+export function renderTemplate(t: OutreachTemplate, c: CreatorRow, owner: string) {
+  const vars: Record<string, string> = {
+    name: c.name.split(/[-—|]/)[0].trim(),
+    platform: c.primaryPlatforms ?? "your channel",
+    segment: c.segment ?? "preparedness",
+    owner,
+  };
+  const sub = (s: string) => s.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] ?? "");
+  return { subject: sub(t.subject), body: sub(t.body) };
+}
+
+// ------------ CSV import (client-side, matches sheet headers) ------------
+export const SHEET_HEADERS = [
+  "Creator ID","Creator","Segment","Primary Platforms","Primary Source","Reach / Location Signal",
+  "Verified Public Email","Official Contact Route","Contact Confidence","Research Status","Priority",
+  "Amazon","Research Notes / Next Check","Last Researched","Seth Next Action","Outreach Owner",
+  "Perry Comments","Amazon Confidence","Monetization","Verification Evidence","Contacted Date",
+  "Contact Method","Response / Follow-up","Sample Status","Rena Notes","Tuan Affiliate Status",
+  "Creator Code / Link","Technical Notes","Recent Activity Check","Full Verification Result",
+  "Verification Evidence / Date","Current Followers / Reach Signal","Main Target Audience",
+  "Likely Audience Geography","Geography Confidence","Facebook URL","Instagram URL","TikTok URL",
+  "YouTube URL","Other Platform + URL","Recommended Offer","Estimated Partnership Tier",
+  "Offer Confidence","Offer Reasoning",
+];
+
+export function priorityTone(p: CreatorPriority | null): string {
+  if (!p) return "bg-muted text-muted-foreground";
+  if (p.includes("High")) return "bg-red-100 text-red-800 border border-red-200";
+  if (p.includes("Medium")) return "bg-amber-100 text-amber-800 border border-amber-200";
+  if (p.includes("Low")) return "bg-emerald-100 text-emerald-800 border border-emerald-200";
+  return "bg-muted text-muted-foreground";
+}
+
+export function ownerTone(o: OutreachOwner): string {
+  if (o === "RENA") return "bg-[color:var(--forest)]/15 text-[color:var(--forest)]";
+  if (o === "VINA") return "bg-[color:var(--gold)]/20 text-[color:var(--forest)]";
+  return "bg-muted text-muted-foreground";
+}
+
+export function perryTone(p: PerryApproval): string {
+  if (p === "Approved") return "bg-emerald-100 text-emerald-800";
+  if (p === "Changes Requested") return "bg-amber-100 text-amber-800";
+  if (p === "Declined") return "bg-red-100 text-red-800";
+  return "bg-muted text-muted-foreground";
+}
+
+export function sampleTone(s: SampleStatus): string {
+  if (s === "Delivered") return "bg-emerald-100 text-emerald-800";
+  if (s === "Shipped") return "bg-blue-100 text-blue-800";
+  if (s === "Address Received" || s === "Awaiting Address") return "bg-amber-100 text-amber-800";
+  if (s === "Approval Pending") return "bg-muted text-muted-foreground";
+  if (s === "Refused") return "bg-red-100 text-red-800";
+  return "bg-muted text-muted-foreground";
+}
+
+export function responseTone(r: ResponseState): string {
+  if (r === "Replied — Interested") return "bg-emerald-100 text-emerald-800";
+  if (r === "Replied — Declined") return "bg-red-100 text-red-800";
+  if (r === "Waiting Reply") return "bg-amber-100 text-amber-800";
+  if (r === "Bounced") return "bg-red-100 text-red-800";
+  return "bg-muted text-muted-foreground";
+}
