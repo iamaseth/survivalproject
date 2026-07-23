@@ -294,7 +294,7 @@ function DataManagementSection() {
   const [auditRows, setAuditRows] = useState<
     Array<{
       id: string; actor_name: string | null; actor_email: string | null; actor_role: string | null;
-      action: string; reset_type: string | null; affected_records: Record<string, unknown>;
+      action: string; reset_type: string | null; affected_records: Record<string, unknown> | null;
       notes: string | null; created_at: string;
     }>
   >([]);
