@@ -14,6 +14,120 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_user_connections: {
+        Row: {
+          connection_key_ciphertext: string
+          connector_id: string
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          connection_key_ciphertext: string
+          connector_id: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          connection_key_ciphertext?: string
+          connector_id?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      gmail_messages: {
+        Row: {
+          body_text: string | null
+          cc_emails: string[]
+          created_at: string
+          creator_id: string | null
+          direction: string
+          from_email: string | null
+          from_name: string | null
+          gmail_message_id: string
+          gmail_thread_id: string | null
+          has_attachments: boolean
+          id: string
+          label_ids: string[]
+          sent_at: string | null
+          snippet: string | null
+          subject: string | null
+          to_emails: string[]
+          user_id: string
+        }
+        Insert: {
+          body_text?: string | null
+          cc_emails?: string[]
+          created_at?: string
+          creator_id?: string | null
+          direction: string
+          from_email?: string | null
+          from_name?: string | null
+          gmail_message_id: string
+          gmail_thread_id?: string | null
+          has_attachments?: boolean
+          id?: string
+          label_ids?: string[]
+          sent_at?: string | null
+          snippet?: string | null
+          subject?: string | null
+          to_emails?: string[]
+          user_id: string
+        }
+        Update: {
+          body_text?: string | null
+          cc_emails?: string[]
+          created_at?: string
+          creator_id?: string | null
+          direction?: string
+          from_email?: string | null
+          from_name?: string | null
+          gmail_message_id?: string
+          gmail_thread_id?: string | null
+          has_attachments?: boolean
+          id?: string
+          label_ids?: string[]
+          sent_at?: string | null
+          snippet?: string | null
+          subject?: string | null
+          to_emails?: string[]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      gmail_poll_state: {
+        Row: {
+          email_address: string | null
+          label_ids: Json
+          last_history_id: string | null
+          last_polled_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          email_address?: string | null
+          label_ids?: Json
+          last_history_id?: string | null
+          last_polled_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          email_address?: string | null
+          label_ids?: Json
+          last_history_id?: string | null
+          last_polled_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
