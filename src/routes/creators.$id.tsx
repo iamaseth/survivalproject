@@ -12,8 +12,16 @@ import {
   isOverdue,
   type CreatorRow,
 } from "@/lib/creator-partnerships";
+import {
+  useWorkspace,
+  updateWorkspace,
+  addActivity,
+  type Activity,
+  type OutreachStatus,
+  type DeliveryStatus,
+} from "@/lib/creator-workspace";
 import { PageHeader } from "@/components/PageHeader";
-import { ArrowLeft, ExternalLink, Mail, Copy, Send, Truck, ShieldCheck, Clock, AlertCircle } from "lucide-react";
+import { ArrowLeft, ExternalLink, Mail, Copy, Send, Truck, ShieldCheck, Clock, AlertCircle, UserCheck, FileText, ListChecks, StickyNote } from "lucide-react";
 
 export const Route = createFileRoute("/creators/$id")({
   loader: ({ params }) => {
