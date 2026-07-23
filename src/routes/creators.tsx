@@ -118,6 +118,7 @@ function CreatorsList() {
       <PersonalizedDashboard />
 
       {/* Operations dashboard (workflow view) */}
+      <section className="mb-3">
         <div className="mb-2 text-[11px] uppercase tracking-[0.22em] text-[color:var(--gold)]">Operations dashboard</div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
           <OpsCard icon={<Mail className="h-3.5 w-3.5" />} label="Ready for outreach" value={ops.readyForOutreach} tone="ready" />
