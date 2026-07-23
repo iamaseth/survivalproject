@@ -38,11 +38,34 @@ export type ActivityKind =
 
 export interface Activity {
   id: string;
-  at: string; // ISO date
+  at: string; // ISO date  (yyyy-mm-dd)
+  time?: string; // HH:mm — populated for real-time entries
   actor: "SETH" | "RENA" | "VINA" | "PERRY" | "SYSTEM";
+  actorName?: string;        // "Vina Nguyen"
+  actorRoleLabel?: string;   // "Partnership Coordinator"
+  actorEmail?: string;
   kind: ActivityKind;
   action: string; // short label
   notes?: string;
+}
+
+// ---------- Current actor injection ----------
+// AppShell pushes the signed-in user here after Google auth resolves so the
+// workspace store can auto-populate created_by / last_modified_by / activity
+// author fields without every call-site knowing about auth.
+export interface CurrentActor {
+  id: "SETH" | "RENA" | "VINA" | "PERRY";
+  name: string;
+  roleLabel: string;
+  email?: string;
+}
+let currentActor: CurrentActor | null = null;
+export function setCurrentActor(a: CurrentActor | null) { currentActor = a; }
+export function getCurrentActor(): CurrentActor | null { return currentActor; }
+
+function nowTime() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
 export interface CreatorWorkspace {
