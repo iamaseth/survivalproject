@@ -15,8 +15,9 @@ import {
   type CreatorRow,
   type OutreachOwner,
 } from "@/lib/creator-partnerships";
+import { useDashboardCounts } from "@/lib/creator-workspace";
 import { PageHeader } from "@/components/PageHeader";
-import { ExternalLink, Search, Download, AlertCircle, Clock, Mail, Truck, ShieldCheck } from "lucide-react";
+import { ExternalLink, Search, Download, AlertCircle, Clock, Mail, Truck, ShieldCheck, Users, CalendarClock, Package, Handshake } from "lucide-react";
 
 export const Route = createFileRoute("/creators")({
   component: CreatorsLayout,
