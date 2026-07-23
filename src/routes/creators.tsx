@@ -247,9 +247,16 @@ function Row({ c }: { c: CreatorRow }) {
   return (
     <tr className="align-top hover:bg-secondary/40">
       <td className="px-3 py-3">
-        <Link to="/creators/$id" params={{ id: c.id }} className="font-medium hover:text-primary">
-          {c.name}
-        </Link>
+        <div className="flex items-center gap-1.5">
+          <Link to="/creators/$id" params={{ id: c.id }} className="font-medium hover:text-primary">
+            {c.name}
+          </Link>
+          {isTestCreatorId(c.id, c.name) ? (
+            <span className="inline-flex rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-900">
+              Test
+            </span>
+          ) : null}
+        </div>
         <div className="text-[11px] text-muted-foreground">{c.id} · {c.segment ?? "—"}</div>
         {c.followersSignal ? <div className="text-[11px] text-muted-foreground">{c.followersSignal}</div> : null}
       </td>
