@@ -1,5 +1,7 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import {
   creatorById,
   OUTREACH_TEMPLATES,
@@ -16,6 +18,8 @@ import {
   useWorkspace,
   updateWorkspace,
   addActivity,
+  clearWorkspaceForIds,
+  isTestCreatorId,
   type Activity,
   type OutreachStatus,
   type DeliveryStatus,
@@ -33,13 +37,17 @@ import {
 } from "@/lib/creator-workflow";
 import { PageHeader } from "@/components/PageHeader";
 import { useCurrentTeamMember } from "@/lib/current-team-member";
-import { ArrowLeft, ExternalLink, Mail, Copy, Send, Truck, ShieldCheck, Clock, AlertCircle, UserCheck, FileText, ListChecks, StickyNote, Compass, Activity as ActivityIcon, Heart, CalendarClock } from "lucide-react";
+import { ArrowLeft, ExternalLink, Mail, Copy, Send, Truck, ShieldCheck, Clock, AlertCircle, UserCheck, FileText, ListChecks, StickyNote, Compass, Activity as ActivityIcon, Heart, CalendarClock, Trash2, Beaker } from "lucide-react";
 import { GmailPanel } from "@/components/creators/GmailPanel";
+import { deleteTestCreator, getTestCreatorRow, useTestCreators } from "@/lib/test-creators";
+import { purgeTestCreatorArtifacts } from "@/lib/gmail.functions";
+import { useAuth } from "@/lib/current-user";
 
 
 export const Route = createFileRoute("/creators/$id")({
   loader: ({ params }) => {
-    const c = creatorById(params.id);
+    // Real creator OR synthetic TEST creator overlay (localStorage).
+    const c = creatorById(params.id) ?? getTestCreatorRow(params.id);
     if (!c) throw notFound();
     return { creator: c };
   },
@@ -73,6 +81,7 @@ export const Route = createFileRoute("/creators/$id")({
   component: CreatorDetail,
 });
 
+
 type Tab = "overview" | "assignment" | "outreach" | "email" | "gmail" | "shipping" | "content" | "approval" | "activity" | "notes" | "raw";
 
 function CreatorDetail() {
@@ -80,6 +89,33 @@ function CreatorDetail() {
   const [tab, setTab] = useState<Tab>("overview");
   const overdue = isOverdue(c);
   const ws = useWorkspace(c);
+  const auth = useAuth();
+  const navigate = useNavigate();
+  const testCreators = useTestCreators();
+  const purge = useServerFn(purgeTestCreatorArtifacts);
+  const isTest = isTestCreatorId(c.id, c.name);
+  const isExecutive = auth.status === "authenticated" && auth.profile.role === "executive";
+  const canDeleteTest = isTest && (
+    isExecutive ||
+    (auth.status === "authenticated" &&
+      testCreators.find((t) => t.id === c.id)?.ownerUserId === auth.profile.userId)
+  );
+
+  const onDeleteTest = async () => {
+    if (!isTest) return;
+    if (!confirm(`Delete test creator "${c.name}" and all linked test activity? This also purges cached Gmail messages tied to this record. The recipient's Gmail inbox is not modified.`)) return;
+    try {
+      const r = await purge({ data: { creatorId: c.id } });
+      clearWorkspaceForIds([c.id]);
+      deleteTestCreator(c.id);
+      toast.success("Test creator removed", {
+        description: `${r.messagesDeleted} cached message${r.messagesDeleted === 1 ? "" : "s"} · ${r.errorsDeleted} send-error log${r.errorsDeleted === 1 ? "" : "s"} purged.`,
+      });
+      navigate({ to: "/creators" });
+    } catch (e) {
+      toast.error("Delete failed", { description: e instanceof Error ? e.message : String(e) });
+    }
+  };
 
   return (
     <div>
@@ -93,12 +129,26 @@ function CreatorDetail() {
         description={c.segment ?? undefined}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            {isTest ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-900">
+                <Beaker className="h-3 w-3" /> Test Creator
+              </span>
+            ) : null}
             <span className={`inline-flex rounded px-2 py-1 text-[11px] ${priorityTone(c.priority)}`}>{c.priority ?? "No priority"}</span>
             <span className={`inline-flex rounded px-2 py-1 text-[11px] ${ownerTone(ws.currentOwner)}`}>{ws.currentOwner ?? "Unassigned"}</span>
             <span className={`inline-flex rounded px-2 py-1 text-[11px] ${perryTone(c.perryApproval)}`}>
               Perry: {c.perryApproval}
             </span>
+            {canDeleteTest ? (
+              <button
+                onClick={onDeleteTest}
+                className="inline-flex items-center gap-1.5 rounded-md border border-red-300 bg-red-50 px-2.5 py-1 text-[11px] font-medium text-red-800 hover:bg-red-100"
+              >
+                <Trash2 className="h-3 w-3" /> Delete test creator
+              </button>
+            ) : null}
           </div>
+
         }
       />
 

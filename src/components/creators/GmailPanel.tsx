@@ -1,14 +1,22 @@
 // Real Gmail composer, AI drafter, and cached conversation history for a creator.
 // Uses the signed-in user's Gmail via the App User Connector.
+//
+// Test Mode safety net:
+//   - Sending to a REAL creator record is blocked while Test Mode is on.
+//   - Sending from a TEST creator record redirects the recipient to
+//     TEST_RECIPIENT_EMAIL (thenxyz@gmail.com) and requires an explicit
+//     final confirmation dialog.
 import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Loader2, Mail, MailCheck, Send, Sparkles, RefreshCw, AlertCircle, MailX, ShieldAlert } from "lucide-react";
+import { Loader2, Mail, MailCheck, Send, Sparkles, RefreshCw, AlertCircle, MailX, ShieldAlert, Beaker, XCircle } from "lucide-react";
 import type { CreatorRow } from "@/lib/creator-partnerships";
-import { useWorkspace, logConfirmedGmailSend } from "@/lib/creator-workspace";
+import { useWorkspace, logConfirmedGmailSend, isTestCreatorId } from "@/lib/creator-workspace";
 import { computeStage } from "@/lib/creator-workflow";
 import { useAuth } from "@/lib/current-user";
+import { useTestMode } from "@/lib/test-mode";
+import { TEST_RECIPIENT_EMAIL } from "@/lib/test-creators";
 import {
   getGmailConnectionStatus,
   sendGmailToCreator,
@@ -40,6 +48,8 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
   const auth = useAuth();
   const ws = useWorkspace(c);
   const stage = computeStage(c, ws);
+  const testMode = useTestMode();
+  const isTestCreator = isTestCreatorId(c.id, c.name);
 
   const status = useServerFn(getGmailConnectionStatus);
   const send = useServerFn(sendGmailToCreator);
@@ -53,6 +63,7 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
   const [mode, setMode] = useState<DraftMode>("Initial Outreach");
   const [drafting, setDrafting] = useState(false);
   const [sending, setSending] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -78,6 +89,12 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
     ? auth.profile.fullName.split(/\s+/)[0]
     : "The team";
 
+  // ---- Rule 8: block sending from a REAL creator record while Test Mode is ON.
+  const blockedByTestMode = testMode.enabled && !isTestCreator;
+  // ---- Rule 4: when Test Mode is on, redirect the recipient to the test inbox.
+  const actualRecipient = testMode.enabled ? TEST_RECIPIENT_EMAIL : c.email;
+  const senderEmail = conn.kind === "connected" ? conn.email : null;
+
   const onGenerate = async () => {
     setErr(null); setDrafting(true);
     try {
@@ -97,26 +114,49 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
     } finally { setDrafting(false); }
   };
 
-  const onSend = async () => {
-    if (!c.email) {
-      const m = "This creator has no email address on file.";
-      setErr(m); toast.error(m); return;
+  const validateBeforeSend = (): string | null => {
+    if (blockedByTestMode) {
+      return "Test Mode is ON — direct sending from a real creator record is disabled. Use the Test Creator to try Gmail flows safely.";
+    }
+    if (!actualRecipient) {
+      return isTestCreator
+        ? "This test creator has no email address on file."
+        : "This creator has no email address on file.";
     }
     if (!subject.trim() || !body.trim()) {
-      const m = "Subject and body are required.";
-      setErr(m); toast.error(m); return;
+      return "Subject and body are required.";
     }
+    return null;
+  };
+
+  const onClickSend = () => {
+    setErr(null);
+    const v = validateBeforeSend();
+    if (v) { setErr(v); toast.error(v); return; }
+    setShowConfirm(true);
+  };
+
+  const doSend = async () => {
+    setShowConfirm(false);
+    if (!actualRecipient) return;
     setErr(null); setSending(true);
     const stageLabel = labelHint(stage);
     try {
       const res = await send({
         data: {
-          creatorId: c.id, creatorEmail: c.email, creatorName: c.name,
-          subject: subject.trim(), body: body.trim(), stage,
+          creatorId: c.id,
+          creatorEmail: actualRecipient,
+          creatorName: testMode.enabled
+            ? `TEST (was: ${c.name})`
+            : c.name,
+          subject: subject.trim(),
+          body: testMode.enabled
+            ? `[TEST MODE — session ${testMode.sessionId ?? "?"}]\nOriginal intended recipient: ${c.email ?? "(none on file)"}\nActual recipient: ${TEST_RECIPIENT_EMAIL}\n\n${body.trim()}`
+            : body.trim(),
+          stage,
         },
       });
       if (!res.ok) {
-        // Gmail reported failure — do NOT mark waiting-for-reply.
         const summary = res.needsReconnect
           ? `Gmail rejected the send (${res.status}). Reconnect Gmail to fix.`
           : `Gmail send failed (${res.status}).`;
@@ -125,7 +165,6 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
         await refresh();
         return;
       }
-      // Confirmed send — this is the ONLY path that flips waitingForReply.
       logConfirmedGmailSend(c, {
         messageId: res.messageId,
         threadId: res.threadId,
@@ -133,8 +172,8 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
         stageLabel,
         actor: (auth.status === "authenticated" && auth.profile.teamId) ? auth.profile.teamId : undefined,
       });
-      toast.success("Email sent", {
-        description: `To ${c.name} · ${c.email} · Gmail id ${res.messageId.slice(0, 8)}…`,
+      toast.success(testMode.enabled ? "Test email sent" : "Email sent", {
+        description: `To ${actualRecipient}${testMode.enabled ? " (Test Mode redirect)" : ""} · Gmail id ${res.messageId.slice(0, 8)}…`,
       });
       setSubject(""); setBody("");
       await refresh();
@@ -173,13 +212,33 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
         <ReconnectBanner reason={conn.lastErrorReason} status={conn.lastErrorStatus} />
       ) : null}
 
+      {testMode.enabled ? (
+        <TestModeSendBanner
+          blocked={blockedByTestMode}
+          isTestCreator={isTestCreator}
+          creatorEmail={c.email}
+        />
+      ) : null}
+
       <section className="rounded-xl border border-border bg-card p-5">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
             <div className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Send via your Gmail</div>
-            <h3 className="font-display text-base">Compose email to {c.name}</h3>
+            <h3 className="font-display text-base">
+              Compose email to {c.name}
+              {isTestCreator ? (
+                <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900">Test</span>
+              ) : null}
+            </h3>
             {c.email ? (
-              <div className="mt-0.5 text-xs text-muted-foreground">To: {c.email}</div>
+              <div className="mt-0.5 text-xs text-muted-foreground">
+                To: {c.email}
+                {testMode.enabled ? (
+                  <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-900">
+                    Test Mode → redirected to {TEST_RECIPIENT_EMAIL}
+                  </span>
+                ) : null}
+              </div>
             ) : (
               <div className="mt-0.5 text-xs text-red-600">No email address on this creator's record.</div>
             )}
@@ -225,12 +284,12 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
             On confirmed send: applies Gmail label <span className="font-medium">{labelHint(stage)}</span>, updates workflow, logs to timeline.
           </div>
           <button
-            onClick={onSend}
-            disabled={sending || !c.email || !isConnected || needsReconnect || !subject.trim() || !body.trim()}
+            onClick={onClickSend}
+            disabled={sending || !isConnected || needsReconnect || blockedByTestMode || !actualRecipient || !subject.trim() || !body.trim()}
             className="inline-flex items-center gap-2 rounded-md bg-[color:var(--forest)] px-4 py-2 text-sm font-medium text-white hover:opacity-95 disabled:opacity-60"
           >
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            Send from my Gmail
+            {testMode.enabled ? "Review & send (Test)" : "Send from my Gmail"}
           </button>
         </div>
         {err ? (
@@ -292,6 +351,18 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
           </ul>
         )}
       </section>
+
+      {showConfirm ? (
+        <ConfirmSendDialog
+          testMode={testMode.enabled}
+          originalRecipient={c.email}
+          actualRecipient={actualRecipient!}
+          subject={subject.trim()}
+          senderEmail={senderEmail}
+          onCancel={() => setShowConfirm(false)}
+          onConfirm={doSend}
+        />
+      ) : null}
     </div>
   );
 }
@@ -327,6 +398,108 @@ function ReconnectBanner({ reason, status }: { reason: string | null; status: nu
       <Link to="/settings" className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700">
         Reconnect Gmail
       </Link>
+    </div>
+  );
+}
+
+function TestModeSendBanner({
+  blocked, isTestCreator, creatorEmail,
+}: { blocked: boolean; isTestCreator: boolean; creatorEmail: string | null }) {
+  if (blocked) {
+    return (
+      <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+        <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
+        <div>
+          <div className="font-medium">Direct-send blocked by Test Mode.</div>
+          <div className="text-xs">
+            Test Mode is on. Sending from a real creator record is disabled to protect
+            {creatorEmail ? <> <span className="font-mono">{creatorEmail}</span> </> : " real recipients "}
+            from test traffic. Create or open the “TEST – Gmail Workflow” creator in Settings → Data Management to run a safe test.
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (isTestCreator) {
+    return (
+      <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+        <Beaker className="mt-0.5 h-4 w-4 shrink-0" />
+        <div>
+          <div className="font-medium">TEST MODE: This message will be sent only to {TEST_RECIPIENT_EMAIL}.</div>
+          <div className="text-xs">
+            The creator record's email is ignored while Test Mode is on. A confirmation step will show the exact recipient before Gmail is called.
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return null;
+}
+
+function ConfirmSendDialog({
+  testMode, originalRecipient, actualRecipient, subject, senderEmail, onCancel, onConfirm,
+}: {
+  testMode: boolean;
+  originalRecipient: string | null;
+  actualRecipient: string;
+  subject: string;
+  senderEmail: string | null;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
+      <div className="w-full max-w-lg rounded-xl border border-border bg-card p-5 shadow-xl">
+        <div className="mb-3 flex items-center gap-2">
+          {testMode ? <Beaker className="h-4 w-4 text-amber-700" /> : <Send className="h-4 w-4" />}
+          <h3 className="font-display text-lg">
+            {testMode ? "Confirm test send" : "Confirm send"}
+          </h3>
+        </div>
+        {testMode ? (
+          <div className="mb-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs font-medium text-amber-900">
+            TEST MODE: This message will be sent only to {TEST_RECIPIENT_EMAIL}.
+          </div>
+        ) : null}
+        <dl className="space-y-2 text-sm">
+          <Field label="Original creator email" value={originalRecipient ?? "— none on file —"} />
+          <Field
+            label="Actual recipient"
+            value={actualRecipient}
+            highlight={testMode && actualRecipient !== originalRecipient}
+          />
+          <Field label="Subject" value={subject} />
+          <Field label="Sending Gmail account" value={senderEmail ?? "your connected Gmail account"} />
+        </dl>
+        <div className="mt-5 flex items-center justify-end gap-2">
+          <button
+            onClick={onCancel}
+            className="rounded-md border border-border bg-background px-3 py-1.5 text-sm hover:bg-secondary"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium text-white ${
+              testMode ? "bg-amber-600 hover:bg-amber-700" : "bg-[color:var(--forest)] hover:opacity-95"
+            }`}
+          >
+            <Send className="h-4 w-4" />
+            {testMode ? `Send test email to ${TEST_RECIPIENT_EMAIL}` : "Send now"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <dt className="min-w-[160px] text-xs uppercase tracking-wider text-muted-foreground">{label}</dt>
+      <dd className={`break-all text-right text-sm ${highlight ? "font-semibold text-amber-800" : "text-foreground"}`}>
+        {value}
+      </dd>
     </div>
   );
 }

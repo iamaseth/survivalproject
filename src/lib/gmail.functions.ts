@@ -569,3 +569,26 @@ export const listGmailSendErrors = createServerFn({ method: "GET" })
       .limit(50);
     return { rows: rows ?? [] };
   });
+
+// ---------- Test creator artifact purge ----------
+// Deletes cached Gmail messages, error logs, and workspace-side artifacts
+// for a synthetic test creator id (starts with "TEST-"). Only removes rows
+// owned by the calling user.
+export const purgeTestCreatorArtifacts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { creatorId: string }) => {
+    if (!input.creatorId.startsWith("TEST-")) {
+      throw new Error("Refusing to purge non-test creator id.");
+    }
+    return input;
+  })
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const [{ count: msgCount }, { count: errCount }] = await Promise.all([
+      supabaseAdmin.from("gmail_messages").delete({ count: "exact" })
+        .eq("user_id", context.userId).eq("creator_id", data.creatorId),
+      supabaseAdmin.from("gmail_send_errors").delete({ count: "exact" })
+        .eq("user_id", context.userId).eq("creator_id", data.creatorId),
+    ]);
+    return { messagesDeleted: msgCount ?? 0, errorsDeleted: errCount ?? 0 };
+  });
