@@ -61,10 +61,13 @@ export const Route = createFileRoute("/creators/$id")({
 
 type Tab = "overview" | "outreach" | "email" | "shipping" | "approval" | "raw";
 
+type Tab = "overview" | "assignment" | "outreach" | "email" | "shipping" | "content" | "approval" | "activity" | "notes" | "raw";
+
 function CreatorDetail() {
   const { creator: c } = Route.useLoaderData();
   const [tab, setTab] = useState<Tab>("overview");
   const overdue = isOverdue(c);
+  const ws = useWorkspace(c);
 
   return (
     <div>
@@ -73,13 +76,13 @@ function CreatorDetail() {
       </Link>
 
       <PageHeader
-        eyebrow={`${c.id} · Supervisor RENA · Owner ${c.outreachOwner ?? "Unassigned"}`}
+        eyebrow={`${c.id} · Supervisor RENA · Owner ${ws.currentOwner ?? "Unassigned"}`}
         title={c.name}
         description={c.segment ?? undefined}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <span className={`inline-flex rounded px-2 py-1 text-[11px] ${priorityTone(c.priority)}`}>{c.priority ?? "No priority"}</span>
-            <span className={`inline-flex rounded px-2 py-1 text-[11px] ${ownerTone(c.outreachOwner)}`}>{c.outreachOwner ?? "Unassigned"}</span>
+            <span className={`inline-flex rounded px-2 py-1 text-[11px] ${ownerTone(ws.currentOwner)}`}>{ws.currentOwner ?? "Unassigned"}</span>
             <span className={`inline-flex rounded px-2 py-1 text-[11px] ${perryTone(c.perryApproval)}`}>
               Perry: {c.perryApproval}
             </span>
@@ -89,16 +92,16 @@ function CreatorDetail() {
 
       {/* Snapshot */}
       <section className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-4">
-        <SnapshotCard icon={<Mail className="h-4 w-4" />} label="Response" value={c.responseState} tone={responseTone(c.responseState)} />
-        <SnapshotCard icon={<Truck className="h-4 w-4" />} label="Sample" value={c.normalizedSampleStatus} tone={sampleTone(c.normalizedSampleStatus)} />
+        <SnapshotCard icon={<Mail className="h-4 w-4" />} label="Outreach" value={ws.outreachStatus} tone="bg-secondary text-secondary-foreground" />
+        <SnapshotCard icon={<Truck className="h-4 w-4" />} label="Delivery" value={ws.deliveryStatus} tone={sampleTone(c.normalizedSampleStatus)} />
         <SnapshotCard
           icon={<Clock className="h-4 w-4" />}
           label="Next follow-up"
-          value={c.nextFollowUpDate ?? "—"}
+          value={ws.nextFollowUpDate ?? "—"}
           tone={overdue ? "bg-red-100 text-red-800" : "bg-secondary text-secondary-foreground"}
           extra={overdue ? <span className="ml-1 inline-flex items-center gap-1 text-[10px] text-red-700"><AlertCircle className="h-3 w-3" /> Overdue</span> : null}
         />
-        <SnapshotCard icon={<ShieldCheck className="h-4 w-4" />} label="Perry approval" value={c.perryApproval} tone={perryTone(c.perryApproval)} />
+        <SnapshotCard icon={<ShieldCheck className="h-4 w-4" />} label="Perry (advisory)" value={c.perryApproval} tone={perryTone(c.perryApproval)} />
       </section>
 
       {/* Tabs */}
@@ -106,10 +109,14 @@ function CreatorDetail() {
         {(
           [
             ["overview", "Overview"],
-            ["outreach", "Outreach history"],
+            ["assignment", "Assignment"],
+            ["outreach", "Outreach"],
             ["email", "Draft email"],
             ["shipping", "Shipping"],
-            ["approval", "Perry approval"],
+            ["content", "Content"],
+            ["activity", "Activity timeline"],
+            ["notes", "Internal notes"],
+            ["approval", "Perry notes"],
             ["raw", "All sheet fields"],
           ] as [Tab, string][]
         ).map(([k, l]) => (
@@ -126,9 +133,13 @@ function CreatorDetail() {
       </div>
 
       {tab === "overview" && <Overview c={c} />}
-      {tab === "outreach" && <OutreachHistory c={c} />}
+      {tab === "assignment" && <AssignmentPanel c={c} />}
+      {tab === "outreach" && <OutreachPanel c={c} />}
       {tab === "email" && <EmailDrafter c={c} />}
       {tab === "shipping" && <Shipping c={c} />}
+      {tab === "content" && <ContentPanel c={c} />}
+      {tab === "activity" && <ActivityTimeline c={c} />}
+      {tab === "notes" && <InternalNotes c={c} />}
       {tab === "approval" && <PerryApprovalPanel c={c} />}
       {tab === "raw" && <RawFields c={c} />}
     </div>
