@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, RefreshCw, Mail, MailCheck, Inbox } from "lucide-react";
+import { toast } from "sonner";
+import { Loader2, RefreshCw, Mail, MailCheck, Inbox, AlertCircle, ShieldAlert } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { listRecentMessages, pollGmailForReplies, getGmailConnectionStatus } from "@/lib/gmail.functions";
 import { CREATORS } from "@/lib/creator-partnerships";
@@ -23,20 +24,35 @@ type Row = {
   subject: string | null; snippet: string | null; sent_at: string | null; user_id: string;
 };
 
+type ConnState = {
+  connected: boolean;
+  needsReconnect: boolean;
+  lastErrorStatus: number | null;
+  lastErrorReason: string | null;
+  lastPolledAt: string | null;
+};
+
 function CommunicationsPage() {
   const list = useServerFn(listRecentMessages);
   const poll = useServerFn(pollGmailForReplies);
   const status = useServerFn(getGmailConnectionStatus);
 
   const [messages, setMessages] = useState<Row[]>([]);
-  const [connected, setConnected] = useState<boolean | null>(null);
+  const [conn, setConn] = useState<ConnState | null>(null);
   const [loading, setLoading] = useState(true);
   const [polling, setPolling] = useState(false);
+  const [pollErr, setPollErr] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "sent" | "received">("all");
 
   const refresh = useCallback(async () => {
     const [s, r] = await Promise.all([status(), list()]);
-    setConnected(s.connected);
+    setConn({
+      connected: s.connected,
+      needsReconnect: s.connected ? s.needsReconnect : false,
+      lastErrorStatus: s.connected ? s.lastErrorStatus ?? null : null,
+      lastErrorReason: s.connected ? s.lastErrorReason ?? null : null,
+      lastPolledAt: s.connected ? s.lastPolledAt ?? null : null,
+    });
     setMessages(r.messages as Row[]);
     setLoading(false);
   }, [list, status]);
@@ -44,8 +60,21 @@ function CommunicationsPage() {
   useEffect(() => { refresh(); }, [refresh]);
 
   const doPoll = async () => {
-    setPolling(true);
-    try { await poll(); await refresh(); } finally { setPolling(false); }
+    setPolling(true); setPollErr(null);
+    try {
+      const r = await poll();
+      if ("polled" in r && !r.polled) {
+        const reason = ("errorReason" in r ? r.errorReason : undefined) ?? r.reason;
+        setPollErr(`Reply sync failed (${"status" in r ? r.status : "?"}): ${reason}`);
+        toast.error("Reply sync failed", { description: reason });
+      } else if (r.polled) {
+        toast.success(`Checked Gmail`, { description: `${r.stored} new message${r.stored === 1 ? "" : "s"}` });
+      }
+      await refresh();
+    } catch (e) {
+      const m = e instanceof Error ? e.message : String(e);
+      setPollErr(m); toast.error("Reply sync failed", { description: m });
+    } finally { setPolling(false); }
   };
 
   const creatorName = (id: string | null) => id ? (CREATORS.find((c) => c.id === id)?.name ?? id) : null;
