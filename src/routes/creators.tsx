@@ -3,7 +3,6 @@ import { useMemo, useState } from "react";
 import {
   CREATORS,
   isOverdue,
-  isWaitingReply,
   isReadyForOutreach,
   needsPerryApproval,
   priorityTone,
@@ -15,7 +14,7 @@ import {
   type CreatorRow,
   type OutreachOwner,
 } from "@/lib/creator-partnerships";
-import { useDashboardCounts } from "@/lib/creator-workspace";
+import { useDashboardCounts, getWorkspace, isWaitingForReply } from "@/lib/creator-workspace";
 import { PageHeader } from "@/components/PageHeader";
 import { PersonalizedDashboard } from "@/components/creators/PersonalizedDashboard";
 import { ExternalLink, Search, Download, AlertCircle, Clock, Mail, Truck, ShieldCheck, Users, CalendarClock, Package, Handshake } from "lucide-react";
@@ -65,7 +64,7 @@ function CreatorsList() {
     return CREATORS.filter((c) => {
       if (queue === "rena" && c.outreachOwner !== "RENA") return false;
       if (queue === "vina" && c.outreachOwner !== "VINA") return false;
-      if (queue === "waiting" && !isWaitingReply(c)) return false;
+      if (queue === "waiting" && !isWaitingForReply(c, getWorkspace(c))) return false;
       if (queue === "overdue" && !isOverdue(c)) return false;
       if (queue === "perry" && !needsPerryApproval(c)) return false;
       if (queue === "shipping" && !["Awaiting Address", "Address Received", "Shipped", "Delivered"].includes(c.normalizedSampleStatus)) return false;
@@ -87,14 +86,14 @@ function CreatorsList() {
     total: CREATORS.length,
     rena: CREATORS.filter((c) => c.outreachOwner === "RENA").length,
     vina: CREATORS.filter((c) => c.outreachOwner === "VINA").length,
-    waiting: CREATORS.filter(isWaitingReply).length,
+    waiting: ops.waiting,
     overdue: CREATORS.filter(isOverdue).length,
     perry: CREATORS.filter(needsPerryApproval).length,
     shipping: CREATORS.filter((c) =>
       ["Awaiting Address", "Address Received", "Shipped", "Delivered"].includes(c.normalizedSampleStatus)
     ).length,
     ready: CREATORS.filter(isReadyForOutreach).length,
-  }), []);
+  }), [ops.waiting]);
 
   return (
     <div>

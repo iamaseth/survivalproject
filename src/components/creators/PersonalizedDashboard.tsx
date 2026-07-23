@@ -8,7 +8,6 @@ import { useMemo } from "react";
 import {
   CREATORS,
   isOverdue,
-  isWaitingReply,
   isReadyForOutreach,
   priorityTone,
   type CreatorRow,
@@ -18,6 +17,7 @@ import {
   useDashboardCounts,
   addActivity,
   updateWorkspace,
+  isWaitingForReply,
   type CreatorWorkspace,
 } from "@/lib/creator-workspace";
 import {
@@ -205,7 +205,7 @@ function metricsFor(member: TeamMember, ops: ReturnType<typeof useDashboardCount
   for (const c of mine) {
     const w = getWorkspace(c);
     if (w.nextFollowUpDate && w.nextFollowUpDate <= today && !w.responded) followUpsDue++;
-    if (w.waitingForReply) waiting++;
+    if (isWaitingForReply(c, w)) waiting++;
     if (w.deliveryStatus === "In Transit") inTransit++;
     if (w.deliveryStatus === "Delivered" && !w.contentReceived) contentPending++;
     if (w.publishDate && w.publishDate >= monthStart) publishedThisMonth++;
