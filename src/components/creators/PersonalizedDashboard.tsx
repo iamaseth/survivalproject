@@ -32,8 +32,6 @@ import {
   type Stage,
 } from "@/lib/creator-workflow";
 import {
-  TEAM_MEMBERS,
-  setCurrentTeamMember,
   useCurrentTeamMember,
   type TeamMember,
   type TeamMemberId,
@@ -241,31 +239,28 @@ export function PersonalizedDashboard() {
 
   return (
     <section className="mb-6 space-y-4">
-      {/* User switcher */}
+      {/* Signed-in identity chip (mock switcher removed — real Google auth) */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[color:var(--gold)]/40 bg-[color:var(--gold)]/10 p-3">
         <div className="flex items-center gap-3">
-          <div className="grid h-9 w-9 place-items-center rounded-full bg-[color:var(--forest)] text-xs font-medium text-primary-foreground">
-            {member.initials}
+          <div className="relative">
+            {member.avatarUrl ? (
+              <img src={member.avatarUrl} alt="" className="h-9 w-9 rounded-full object-cover" />
+            ) : (
+              <div className="grid h-9 w-9 place-items-center rounded-full bg-[color:var(--forest)] text-xs font-medium text-primary-foreground">
+                {member.initials}
+              </div>
+            )}
+            <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--gold)]/10 bg-emerald-500" />
           </div>
           <div className="leading-tight">
             <div className="text-[10px] uppercase tracking-[0.22em] text-[color:var(--forest)]">Signed in as</div>
-            <div className="font-display text-lg">{member.name} · <span className="text-sm text-muted-foreground">{member.title}</span></div>
+            <div className="font-display text-lg">
+              {member.name} · <span className="text-sm text-muted-foreground">{member.title}</span>
+            </div>
+            {member.email ? (
+              <div className="text-[11px] text-muted-foreground">{member.email}</div>
+            ) : null}
           </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-1 rounded-md border border-border bg-card p-1">
-          <span className="px-2 text-[10px] uppercase tracking-wider text-muted-foreground">Switch user</span>
-          {TEAM_MEMBERS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setCurrentTeamMember(t.id)}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
-                t.id === member.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"
-              }`}
-              title={t.title}
-            >
-              {t.name}
-            </button>
-          ))}
         </div>
       </div>
 
