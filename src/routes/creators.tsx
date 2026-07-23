@@ -320,6 +320,17 @@ function SummaryCard({ label, value, tone }: { label: string; value: number; ton
   );
 }
 
+function OpsCard({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: number; tone?: "warn" | "alert" | "ready" }) {
+  const border =
+    tone === "alert" ? "border-red-300 bg-red-50/50" : tone === "warn" ? "border-amber-300 bg-amber-50/50" : tone === "ready" ? "border-emerald-300 bg-emerald-50/50" : "border-border bg-card";
+  return (
+    <div className={`rounded-lg border p-3 ${border}`}>
+      <div className="mb-1 flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">{icon}{label}</div>
+      <div className="font-display text-2xl leading-none text-foreground">{value}</div>
+    </div>
+  );
+}
+
 function ImportPanel({ onClose }: { onClose: () => void }) {
   const [text, setText] = useState("");
   const [result, setResult] = useState<{ rows: number; missing: string[] } | null>(null);
