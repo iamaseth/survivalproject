@@ -20,9 +20,14 @@ import {
   exportWorkspaceSnapshot, isTestCreatorId, workspaceActivityCounts, workspaceOverrideCount,
   previewReconcileWaitingForReply, reconcileWaitingForReply,
 } from "@/lib/creator-workspace";
-import { listGmailSendErrors, getGmailConnectionStatus as getGmailStatus } from "@/lib/gmail.functions";
+import { listGmailSendErrors, getGmailConnectionStatus as getGmailStatus, purgeTestCreatorArtifacts } from "@/lib/gmail.functions";
 import { CREATORS } from "@/lib/creator-partnerships";
 import { enableTestMode, disableTestMode, useTestMode } from "@/lib/test-mode";
+import {
+  createTestCreator, deleteTestCreator, useTestCreators, TEST_RECIPIENT_EMAIL,
+} from "@/lib/test-creators";
+import { Link as RouterLink } from "@tanstack/react-router";
+import { toast } from "sonner";
 
 const GATEWAY_BASE_URL = "https://connector-gateway.lovable.dev";
 
