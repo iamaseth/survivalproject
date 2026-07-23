@@ -15,6 +15,7 @@ import { Route as TeamActionsRouteImport } from './routes/team-actions'
 import { Route as SeoRouteImport } from './routes/seo'
 import { Route as ReviewRouteImport } from './routes/review'
 import { Route as LeadsRouteImport } from './routes/leads'
+import { Route as KnowledgeRouteImport } from './routes/knowledge'
 import { Route as EmailRouteImport } from './routes/email'
 import { Route as DecisionsRouteImport } from './routes/decisions'
 import { Route as CreatorsRouteImport } from './routes/creators'
@@ -23,6 +24,7 @@ import { Route as AssetsRouteImport } from './routes/assets'
 import { Route as ArchiveRouteImport } from './routes/archive'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as KnowledgeIdRouteImport } from './routes/knowledge.$id'
 import { Route as CreatorsIdRouteImport } from './routes/creators.$id'
 import { Route as AssetsIdRouteImport } from './routes/assets.$id'
 
@@ -54,6 +56,11 @@ const ReviewRoute = ReviewRouteImport.update({
 const LeadsRoute = LeadsRouteImport.update({
   id: '/leads',
   path: '/leads',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KnowledgeRoute = KnowledgeRouteImport.update({
+  id: '/knowledge',
+  path: '/knowledge',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EmailRoute = EmailRouteImport.update({
@@ -96,6 +103,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const KnowledgeIdRoute = KnowledgeIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => KnowledgeRoute,
+} as any)
 const CreatorsIdRoute = CreatorsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -116,6 +128,7 @@ export interface FileRoutesByFullPath {
   '/creators': typeof CreatorsRouteWithChildren
   '/decisions': typeof DecisionsRoute
   '/email': typeof EmailRoute
+  '/knowledge': typeof KnowledgeRouteWithChildren
   '/leads': typeof LeadsRoute
   '/review': typeof ReviewRoute
   '/seo': typeof SeoRoute
@@ -124,6 +137,7 @@ export interface FileRoutesByFullPath {
   '/website': typeof WebsiteRoute
   '/assets/$id': typeof AssetsIdRoute
   '/creators/$id': typeof CreatorsIdRoute
+  '/knowledge/$id': typeof KnowledgeIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -134,6 +148,7 @@ export interface FileRoutesByTo {
   '/creators': typeof CreatorsRouteWithChildren
   '/decisions': typeof DecisionsRoute
   '/email': typeof EmailRoute
+  '/knowledge': typeof KnowledgeRouteWithChildren
   '/leads': typeof LeadsRoute
   '/review': typeof ReviewRoute
   '/seo': typeof SeoRoute
@@ -142,6 +157,7 @@ export interface FileRoutesByTo {
   '/website': typeof WebsiteRoute
   '/assets/$id': typeof AssetsIdRoute
   '/creators/$id': typeof CreatorsIdRoute
+  '/knowledge/$id': typeof KnowledgeIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -153,6 +169,7 @@ export interface FileRoutesById {
   '/creators': typeof CreatorsRouteWithChildren
   '/decisions': typeof DecisionsRoute
   '/email': typeof EmailRoute
+  '/knowledge': typeof KnowledgeRouteWithChildren
   '/leads': typeof LeadsRoute
   '/review': typeof ReviewRoute
   '/seo': typeof SeoRoute
@@ -161,6 +178,7 @@ export interface FileRoutesById {
   '/website': typeof WebsiteRoute
   '/assets/$id': typeof AssetsIdRoute
   '/creators/$id': typeof CreatorsIdRoute
+  '/knowledge/$id': typeof KnowledgeIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -173,6 +191,7 @@ export interface FileRouteTypes {
     | '/creators'
     | '/decisions'
     | '/email'
+    | '/knowledge'
     | '/leads'
     | '/review'
     | '/seo'
@@ -181,6 +200,7 @@ export interface FileRouteTypes {
     | '/website'
     | '/assets/$id'
     | '/creators/$id'
+    | '/knowledge/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -191,6 +211,7 @@ export interface FileRouteTypes {
     | '/creators'
     | '/decisions'
     | '/email'
+    | '/knowledge'
     | '/leads'
     | '/review'
     | '/seo'
@@ -199,6 +220,7 @@ export interface FileRouteTypes {
     | '/website'
     | '/assets/$id'
     | '/creators/$id'
+    | '/knowledge/$id'
   id:
     | '__root__'
     | '/'
@@ -209,6 +231,7 @@ export interface FileRouteTypes {
     | '/creators'
     | '/decisions'
     | '/email'
+    | '/knowledge'
     | '/leads'
     | '/review'
     | '/seo'
@@ -217,6 +240,7 @@ export interface FileRouteTypes {
     | '/website'
     | '/assets/$id'
     | '/creators/$id'
+    | '/knowledge/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -228,6 +252,7 @@ export interface RootRouteChildren {
   CreatorsRoute: typeof CreatorsRouteWithChildren
   DecisionsRoute: typeof DecisionsRoute
   EmailRoute: typeof EmailRoute
+  KnowledgeRoute: typeof KnowledgeRouteWithChildren
   LeadsRoute: typeof LeadsRoute
   ReviewRoute: typeof ReviewRoute
   SeoRoute: typeof SeoRoute
@@ -278,6 +303,13 @@ declare module '@tanstack/react-router' {
       path: '/leads'
       fullPath: '/leads'
       preLoaderRoute: typeof LeadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/knowledge': {
+      id: '/knowledge'
+      path: '/knowledge'
+      fullPath: '/knowledge'
+      preLoaderRoute: typeof KnowledgeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/email': {
@@ -336,6 +368,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/knowledge/$id': {
+      id: '/knowledge/$id'
+      path: '/$id'
+      fullPath: '/knowledge/$id'
+      preLoaderRoute: typeof KnowledgeIdRouteImport
+      parentRoute: typeof KnowledgeRoute
+    }
     '/creators/$id': {
       id: '/creators/$id'
       path: '/$id'
@@ -376,6 +415,18 @@ const CreatorsRouteWithChildren = CreatorsRoute._addFileChildren(
   CreatorsRouteChildren,
 )
 
+interface KnowledgeRouteChildren {
+  KnowledgeIdRoute: typeof KnowledgeIdRoute
+}
+
+const KnowledgeRouteChildren: KnowledgeRouteChildren = {
+  KnowledgeIdRoute: KnowledgeIdRoute,
+}
+
+const KnowledgeRouteWithChildren = KnowledgeRoute._addFileChildren(
+  KnowledgeRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
@@ -385,6 +436,7 @@ const rootRouteChildren: RootRouteChildren = {
   CreatorsRoute: CreatorsRouteWithChildren,
   DecisionsRoute: DecisionsRoute,
   EmailRoute: EmailRoute,
+  KnowledgeRoute: KnowledgeRouteWithChildren,
   LeadsRoute: LeadsRoute,
   ReviewRoute: ReviewRoute,
   SeoRoute: SeoRoute,

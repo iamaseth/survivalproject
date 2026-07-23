@@ -15,7 +15,9 @@ import {
   Shield,
   Search,
   Bell,
+  BookOpen,
 } from "lucide-react";
+
 import { currentUser } from "@/lib/mock-data";
 
 const nav = [
@@ -24,6 +26,7 @@ const nav = [
   { to: "/decisions", label: "Decisions Needed", icon: GitBranch },
   { to: "/assets", label: "Assets", icon: FolderOpen },
   { to: "/creators", label: "Creator Partnerships", icon: Users },
+  { to: "/knowledge", label: "Knowledge Center", icon: BookOpen },
   { to: "/website", label: "Website & Shopify", icon: Globe },
   { to: "/video", label: "Video Production", icon: Video },
   { to: "/seo", label: "SEO & Articles", icon: FileText },
