@@ -92,7 +92,7 @@ function CommunicationsPage() {
         actions={
           <button
             onClick={doPoll}
-            disabled={polling || !connected}
+            disabled={polling || !conn?.connected || conn?.needsReconnect}
             className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-sm hover:bg-secondary disabled:opacity-60"
           >
             {polling ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
@@ -101,9 +101,34 @@ function CommunicationsPage() {
         }
       />
 
-      {connected === false ? (
+      {conn && !conn.connected ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           Your Gmail isn't connected yet. <Link to="/settings" className="underline">Connect it in Settings</Link> to sync your creator emails.
+        </div>
+      ) : null}
+
+      {conn?.connected && conn.needsReconnect ? (
+        <div className="flex items-start justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+          <div className="flex items-start gap-2">
+            <ShieldAlert className="mt-0.5 h-4 w-4" />
+            <div>
+              <div className="font-medium">Gmail connection needs attention. Reconnect Gmail to restore sending and reply syncing.</div>
+              {conn.lastErrorReason ? (
+                <div className="mt-0.5 text-[11px] text-red-700">
+                  Last Gmail error{conn.lastErrorStatus ? ` (${conn.lastErrorStatus})` : ""}: {conn.lastErrorReason}
+                </div>
+              ) : null}
+            </div>
+          </div>
+          <Link to="/settings" className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700">
+            Reconnect Gmail
+          </Link>
+        </div>
+      ) : null}
+
+      {pollErr ? (
+        <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+          <AlertCircle className="mt-0.5 h-4 w-4" /> {pollErr}
         </div>
       ) : null}
 
