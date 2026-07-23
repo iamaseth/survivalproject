@@ -23,7 +23,7 @@ const nav = [
   { to: "/review", label: "Needs Boss Review", icon: ClipboardCheck },
   { to: "/decisions", label: "Decisions Needed", icon: GitBranch },
   { to: "/assets", label: "Assets", icon: FolderOpen },
-  { to: "/leads", label: "Influencer Leads", icon: Users },
+  { to: "/creators", label: "Creator Partnerships", icon: Users },
   { to: "/website", label: "Website & Shopify", icon: Globe },
   { to: "/video", label: "Video Production", icon: Video },
   { to: "/seo", label: "SEO & Articles", icon: FileText },

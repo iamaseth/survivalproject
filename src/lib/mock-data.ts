@@ -538,3 +538,304 @@ export const priorityTone: Record<Priority, string> = {
   Medium: "text-[color:var(--gold)]",
   Low: "text-muted-foreground",
 };
+
+// =========================================================
+// Creator Partnerships CRM
+// =========================================================
+
+export type CreatorPlatform =
+  | "YouTube"
+  | "TikTok"
+  | "Instagram"
+  | "Blog"
+  | "Podcast"
+  | "Twitter/X"
+  | "Facebook"
+  | "Other";
+
+export type CreatorStatus =
+  | "Research"
+  | "Ready for Review"
+  | "Approved for Outreach"
+  | "Outreach Started"
+  | "Contacted"
+  | "Responded"
+  | "Negotiating"
+  | "Product Shipped"
+  | "Content Received"
+  | "Published"
+  | "Closed";
+
+export type CreatorAiRecommendation = "Recommended" | "Maybe" | "Not Recommended";
+
+export type CreatorSupervisor = "Rena";
+export type CreatorRelationshipOwner = "Rena" | "Vina";
+export type CreatorResearcher = "Seth";
+
+export interface CreatorWorkflowEvent {
+  id: string;
+  at: string;
+  status: CreatorStatus;
+  actor: string;
+  note?: string;
+}
+
+export interface CreatorContactEvent {
+  id: string;
+  at: string;
+  channel: "Email" | "DM" | "Call" | "Other";
+  actor: string;
+  summary: string;
+}
+
+export interface Creator {
+  id: string;
+  name: string;
+  platform: CreatorPlatform;
+  profileUrl: string;
+  email: string;
+  country: string;
+  language: string;
+  category: string;
+  targetAudience: string;
+  followers: number;
+  avgViews: number;
+  engagementRate: number;
+  brandFitScore: number;
+  trustScore: number;
+  educationalScore: number;
+  aiRecommendation: CreatorAiRecommendation;
+  aiReasoning: string;
+  status: CreatorStatus;
+  supervisor: CreatorSupervisor;
+  relationshipOwner: CreatorRelationshipOwner;
+  researchBy: CreatorResearcher;
+  internalNotes: string;
+  lastContactDate?: string;
+  nextFollowUpDate?: string;
+  createdAt: string;
+  updatedAt: string;
+  workflowHistory: CreatorWorkflowEvent[];
+  contactHistory: CreatorContactEvent[];
+}
+
+export const CREATOR_STATUS_ORDER: CreatorStatus[] = [
+  "Research",
+  "Ready for Review",
+  "Approved for Outreach",
+  "Outreach Started",
+  "Contacted",
+  "Responded",
+  "Negotiating",
+  "Product Shipped",
+  "Content Received",
+  "Published",
+  "Closed",
+];
+
+export const creatorStatusTone: Record<CreatorStatus, string> = {
+  Research: "bg-muted text-muted-foreground",
+  "Ready for Review": "bg-[color:var(--gold)]/15 text-[color:var(--gold)] border-[color:var(--gold)]/40",
+  "Approved for Outreach": "bg-[color:var(--olive)]/20 text-[color:var(--forest)] border-[color:var(--olive)]/40",
+  "Outreach Started": "bg-secondary text-secondary-foreground",
+  Contacted: "bg-secondary text-secondary-foreground",
+  Responded: "bg-accent text-accent-foreground",
+  Negotiating: "bg-accent text-accent-foreground",
+  "Product Shipped": "bg-accent text-accent-foreground",
+  "Content Received": "bg-[color:var(--olive)]/20 text-[color:var(--forest)]",
+  Published: "bg-primary text-primary-foreground",
+  Closed: "bg-muted text-muted-foreground",
+};
+
+export const aiRecommendationTone: Record<CreatorAiRecommendation, string> = {
+  Recommended: "text-[color:var(--forest)]",
+  Maybe: "text-[color:var(--gold)]",
+  "Not Recommended": "text-destructive",
+};
+
+export const creators: Creator[] = [
+  {
+    id: "cr1",
+    name: "Amelia Frost",
+    platform: "Instagram",
+    profileUrl: "https://instagram.com/ameliapreps",
+    email: "hello@ameliapreps.com",
+    country: "United States",
+    language: "English",
+    category: "Household Preparedness",
+    targetAudience: "Suburban parents, 28–45, family-first pantry stocking",
+    followers: 412000,
+    avgViews: 185000,
+    engagementRate: 5.4,
+    brandFitScore: 92,
+    trustScore: 88,
+    educationalScore: 81,
+    aiRecommendation: "Recommended",
+    aiReasoning:
+      "Strong topical overlap with household food security. Non-fear framing matches brand voice. Kid-safe content and verified business account reduce reputational risk.",
+    status: "Ready for Review",
+    supervisor: "Rena",
+    relationshipOwner: "Rena",
+    researchBy: "Seth",
+    internalNotes: "Pantry tour reel hit 2.1M views. Confirmed public business email in bio.",
+    lastContactDate: daysAgo(6),
+    nextFollowUpDate: daysAhead(2),
+    createdAt: daysAgo(10),
+    updatedAt: daysAgo(1),
+    workflowHistory: [
+      { id: "cw1a", at: daysAgo(10), status: "Research", actor: "Seth" },
+      { id: "cw1b", at: daysAgo(1), status: "Ready for Review", actor: "Seth", note: "Handing to Rena for approval." },
+    ],
+    contactHistory: [
+      { id: "cc1a", at: daysAgo(6), channel: "Email", actor: "Seth", summary: "Sent initial research questionnaire." },
+    ],
+  },
+  {
+    id: "cr2",
+    name: "Marcus Kane",
+    platform: "YouTube",
+    profileUrl: "https://youtube.com/@kane.outdoors",
+    email: "manager@kaneoutdoors.co",
+    country: "United States",
+    language: "English",
+    category: "Backcountry / Ultralight",
+    targetAudience: "Thru-hikers and multi-day backpackers, 22–40",
+    followers: 268000,
+    avgViews: 92000,
+    engagementRate: 6.4,
+    brandFitScore: 88,
+    trustScore: 90,
+    educationalScore: 84,
+    aiRecommendation: "Recommended",
+    aiReasoning:
+      "Calorie-per-ounce framing is already central to his channel. High engagement, credible outdoor authority, manager-represented so terms will be structured.",
+    status: "Approved for Outreach",
+    supervisor: "Rena",
+    relationshipOwner: "Rena",
+    researchBy: "Seth",
+    internalNotes: "Manager prefers deck + rate card before scheduling a call.",
+    lastContactDate: daysAgo(3),
+    nextFollowUpDate: daysAhead(4),
+    createdAt: daysAgo(14),
+    updatedAt: daysAgo(2),
+    workflowHistory: [
+      { id: "cw2a", at: daysAgo(14), status: "Research", actor: "Seth" },
+      { id: "cw2b", at: daysAgo(6), status: "Ready for Review", actor: "Seth" },
+      { id: "cw2c", at: daysAgo(2), status: "Approved for Outreach", actor: "Rena", note: "Fits Q1 backcountry push." },
+    ],
+    contactHistory: [
+      { id: "cc2a", at: daysAgo(3), channel: "Email", actor: "Rena", summary: "Sent partnership deck to manager." },
+    ],
+  },
+  {
+    id: "cr3",
+    name: "Dr. Priya Shah",
+    platform: "YouTube",
+    profileUrl: "https://youtube.com/@drpriyareviews",
+    email: "agent@shahtalent.com",
+    country: "United States",
+    language: "English",
+    category: "Nutrition / Registered Dietitian",
+    targetAudience: "Health-conscious adults, 30–55, evaluating emergency food",
+    followers: 512000,
+    avgViews: 140000,
+    engagementRate: 4.1,
+    brandFitScore: 85,
+    trustScore: 96,
+    educationalScore: 95,
+    aiRecommendation: "Recommended",
+    aiReasoning:
+      "RD credential is uniquely valuable for the nutrition-label narrative. Higher fee expected but educational value and trust score justify prioritization.",
+    status: "Negotiating",
+    supervisor: "Rena",
+    relationshipOwner: "Vina",
+    researchBy: "Seth",
+    internalNotes: "Agency countered on flat fee + performance bonus. Waiting on Perry's ceiling.",
+    lastContactDate: daysAgo(1),
+    nextFollowUpDate: daysAhead(3),
+    createdAt: daysAgo(21),
+    updatedAt: daysAgo(1),
+    workflowHistory: [
+      { id: "cw3a", at: daysAgo(21), status: "Research", actor: "Seth" },
+      { id: "cw3b", at: daysAgo(15), status: "Ready for Review", actor: "Seth" },
+      { id: "cw3c", at: daysAgo(12), status: "Approved for Outreach", actor: "Rena" },
+      { id: "cw3d", at: daysAgo(9), status: "Contacted", actor: "Vina" },
+      { id: "cw3e", at: daysAgo(6), status: "Responded", actor: "Vina" },
+      { id: "cw3f", at: daysAgo(2), status: "Negotiating", actor: "Vina" },
+    ],
+    contactHistory: [
+      { id: "cc3a", at: daysAgo(9), channel: "Email", actor: "Vina", summary: "Introduction + brief." },
+      { id: "cc3b", at: daysAgo(6), channel: "Email", actor: "Vina", summary: "Agency replied, requested rate sheet." },
+      { id: "cc3c", at: daysAgo(1), channel: "Call", actor: "Vina", summary: "Rate discussion — flat + bonus proposal." },
+    ],
+  },
+  {
+    id: "cr4",
+    name: "Jenna & Cole Rowe",
+    platform: "TikTok",
+    profileUrl: "https://tiktok.com/@therowehomestead",
+    email: "hi@therowehomestead.com",
+    country: "United States",
+    language: "English",
+    category: "Modern Homesteading",
+    targetAudience: "Millennial homesteaders and pantry-stockers",
+    followers: 189000,
+    avgViews: 74000,
+    engagementRate: 7.8,
+    brandFitScore: 78,
+    trustScore: 82,
+    educationalScore: 70,
+    aiRecommendation: "Maybe",
+    aiReasoning:
+      "Audience overlap is strong but tone occasionally leans lifestyle over utility. Recommend a paid trial post before longer partnership.",
+    status: "Contacted",
+    supervisor: "Rena",
+    relationshipOwner: "Rena",
+    researchBy: "Seth",
+    internalNotes: "Prefers DMs. Send one-pager, not a deck.",
+    lastContactDate: daysAgo(2),
+    nextFollowUpDate: daysAhead(5),
+    createdAt: daysAgo(8),
+    updatedAt: daysAgo(2),
+    workflowHistory: [
+      { id: "cw4a", at: daysAgo(8), status: "Research", actor: "Seth" },
+      { id: "cw4b", at: daysAgo(5), status: "Ready for Review", actor: "Seth" },
+      { id: "cw4c", at: daysAgo(4), status: "Approved for Outreach", actor: "Rena" },
+      { id: "cw4d", at: daysAgo(2), status: "Contacted", actor: "Rena" },
+    ],
+    contactHistory: [
+      { id: "cc4a", at: daysAgo(2), channel: "DM", actor: "Rena", summary: "Sent intro DM with one-pager link." },
+    ],
+  },
+  {
+    id: "cr5",
+    name: "Sam Ortiz",
+    platform: "YouTube",
+    profileUrl: "https://youtube.com/@sam.overlands",
+    email: "sam@overlands.tv",
+    country: "United States",
+    language: "English / Spanish",
+    category: "Overlanding",
+    targetAudience: "Vehicle-based travelers, 25–45, long-format viewers",
+    followers: 96000,
+    avgViews: 41000,
+    engagementRate: 3.6,
+    brandFitScore: 64,
+    trustScore: 79,
+    educationalScore: 58,
+    aiRecommendation: "Maybe",
+    aiReasoning:
+      "Product fits use case (no-cook, compact) but audience size and engagement are borderline. Consider as filler content, not a hero placement.",
+    status: "Research",
+    supervisor: "Rena",
+    relationshipOwner: "Vina",
+    researchBy: "Seth",
+    internalNotes: "Confirm posting cadence — appears to have slowed in Q4.",
+    createdAt: daysAgo(4),
+    updatedAt: daysAgo(4),
+    workflowHistory: [{ id: "cw5a", at: daysAgo(4), status: "Research", actor: "Seth" }],
+    contactHistory: [],
+  },
+];
+
+export const creatorById = (id: string) => creators.find((c) => c.id === id);
