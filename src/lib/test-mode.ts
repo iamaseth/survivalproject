@@ -1,6 +1,8 @@
 // Test Mode — client-side flag that tags any activity/workspace edits made
 // during a testing session so they can be wiped later without touching real data.
 import { useSyncExternalStore } from "react";
+import { ensureFixedTestCreator } from "./test-creators";
+
 
 const LS_KEY = "st.testMode.v1";
 
