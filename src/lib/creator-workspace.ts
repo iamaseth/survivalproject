@@ -103,6 +103,9 @@ export interface CreatorWorkspace {
   publishDate: string | null;
 
   // Internal notes
+  teamNotes: string | null;
+  aiRecommendation: string | null;
+  researchNotes: string | null;
   executiveNotes: string | null; // Perry
 
   // Ownership (auto-populated from the signed-in user)
