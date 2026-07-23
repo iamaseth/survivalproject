@@ -103,10 +103,17 @@ export interface CreatorWorkspace {
   publishDate: string | null;
 
   // Internal notes
-  teamNotes: string | null;
-  aiRecommendation: string | null;
-  researchNotes: string | null;
   executiveNotes: string | null; // Perry
+
+  // Ownership (auto-populated from the signed-in user)
+  createdBy?: string | null;         // display name
+  createdByRole?: string | null;
+  createdAt?: string | null;         // ISO date
+  lastModifiedBy?: string | null;
+  lastModifiedByRole?: string | null;
+  lastModifiedAt?: string | null;    // ISO datetime
+  lastActivityBy?: string | null;
+  supervisor?: string | null;        // Rena for coordinators, Perry for managers
 
   // Activity timeline
   activity: Activity[];
@@ -276,18 +283,38 @@ export function useWorkspace(c: CreatorRow): CreatorWorkspace {
 }
 
 export function updateWorkspace(id: string, patch: Overrides) {
-  cache = { ...cache, [id]: { ...(cache[id] ?? {}), ...patch } };
+  const stamped: Overrides = { ...patch };
+  const actor = getCurrentActor();
+  if (actor) {
+    stamped.lastModifiedBy = actor.name;
+    stamped.lastModifiedByRole = actor.roleLabel;
+    stamped.lastModifiedAt = new Date().toISOString();
+    if (!cache[id]?.createdBy) {
+      stamped.createdBy = actor.name;
+      stamped.createdByRole = actor.roleLabel;
+      stamped.createdAt = new Date().toISOString().slice(0, 10);
+    }
+  }
+  cache = { ...cache, [id]: { ...(cache[id] ?? {}), ...stamped } };
   emit();
 }
 
 export function addActivity(c: CreatorRow, ev: Omit<Activity, "id">) {
   const base = defaultsFor(c);
   const existing = cache[c.id]?.activity ?? [];
+  const actor = getCurrentActor();
+  const enriched: Omit<Activity, "id"> = {
+    ...ev,
+    time: ev.time ?? nowTime(),
+    actorName: ev.actorName ?? (actor?.id === ev.actor ? actor.name : undefined),
+    actorRoleLabel: ev.actorRoleLabel ?? (actor?.id === ev.actor ? actor.roleLabel : undefined),
+    actorEmail: ev.actorEmail ?? (actor?.id === ev.actor ? actor.email : undefined),
+  };
   const nextExtra: Activity[] = [
     ...existing,
-    { ...ev, id: `${c.id}-a-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` },
+    { ...enriched, id: `${c.id}-a-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` },
   ];
-  updateWorkspace(c.id, { activity: nextExtra });
+  updateWorkspace(c.id, { activity: nextExtra, lastActivityBy: enriched.actorName ?? ev.actor });
   // touch derived counts too
   if (ev.kind === "email_sent") {
     updateWorkspace(c.id, {
