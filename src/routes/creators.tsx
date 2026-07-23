@@ -17,6 +17,7 @@ import {
 } from "@/lib/creator-partnerships";
 import { useDashboardCounts } from "@/lib/creator-workspace";
 import { PageHeader } from "@/components/PageHeader";
+import { PersonalizedDashboard } from "@/components/creators/PersonalizedDashboard";
 import { ExternalLink, Search, Download, AlertCircle, Clock, Mail, Truck, ShieldCheck, Users, CalendarClock, Package, Handshake } from "lucide-react";
 
 export const Route = createFileRoute("/creators")({
@@ -112,6 +113,9 @@ function CreatorsList() {
           </div>
         }
       />
+
+      {/* Personalized team workspace (v4) */}
+      <PersonalizedDashboard />
 
       {/* Operations dashboard (workflow view) */}
       <section className="mb-3">
