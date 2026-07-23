@@ -59,10 +59,18 @@ function CreatorsList() {
   const [queue, setQueue] = useState<QueueKey>("all");
   const [ownerFilter, setOwnerFilter] = useState<"All" | "RENA" | "VINA" | "Unassigned">("All");
   const [showImport, setShowImport] = useState(false);
+  const testCreators = useTestCreators();
+
+  // Merge synthetic TEST creators (localStorage) with the imported spreadsheet
+  // rows so they appear in the same queues, filters, and search results.
+  const allCreators = useMemo(() => {
+    const testRows = testCreators.map(testCreatorToRow);
+    return [...testRows, ...CREATORS];
+  }, [testCreators]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return CREATORS.filter((c) => {
+    return allCreators.filter((c) => {
       if (queue === "rena" && c.outreachOwner !== "RENA") return false;
       if (queue === "vina" && c.outreachOwner !== "VINA") return false;
       if (queue === "waiting" && !isWaitingForReply(c, getWorkspace(c))) return false;
@@ -81,20 +89,21 @@ function CreatorsList() {
         c.id.toLowerCase().includes(needle)
       );
     });
-  }, [q, queue, ownerFilter]);
+  }, [allCreators, q, queue, ownerFilter]);
 
   const counts = useMemo(() => ({
-    total: CREATORS.length,
-    rena: CREATORS.filter((c) => c.outreachOwner === "RENA").length,
-    vina: CREATORS.filter((c) => c.outreachOwner === "VINA").length,
+    total: allCreators.length,
+    rena: allCreators.filter((c) => c.outreachOwner === "RENA").length,
+    vina: allCreators.filter((c) => c.outreachOwner === "VINA").length,
     waiting: ops.waiting,
-    overdue: CREATORS.filter(isOverdue).length,
-    perry: CREATORS.filter(needsPerryApproval).length,
-    shipping: CREATORS.filter((c) =>
+    overdue: allCreators.filter(isOverdue).length,
+    perry: allCreators.filter(needsPerryApproval).length,
+    shipping: allCreators.filter((c) =>
       ["Awaiting Address", "Address Received", "Shipped", "Delivered"].includes(c.normalizedSampleStatus)
     ).length,
-    ready: CREATORS.filter(isReadyForOutreach).length,
-  }), [ops.waiting]);
+    ready: allCreators.filter(isReadyForOutreach).length,
+  }), [allCreators, ops.waiting]);
+
 
   return (
     <div>
