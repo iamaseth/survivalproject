@@ -1,47 +1,36 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import {
   LayoutDashboard,
-  ClipboardCheck,
-  GitBranch,
-  FolderOpen,
   Users,
-  Globe,
-  Video,
-  FileText,
-  Mail,
-  ListChecks,
+  Megaphone,
   MessageSquare,
-  Archive,
-  Shield,
+  BookOpen,
+  FolderOpen,
+  BarChart3,
+  Settings as SettingsIcon,
   Search,
   Bell,
-  BookOpen,
   ChevronDown,
   LogOut,
   User as UserIcon,
-  Settings as SettingsIcon,
 } from "lucide-react";
 
 import { useAuth } from "@/lib/current-user";
 import { setCurrentActor } from "@/lib/creator-workspace";
 import { SignInCard } from "@/routes/auth";
+import { pollGmailForReplies } from "@/lib/gmail.functions";
 
 const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { to: "/review", label: "Needs Boss Review", icon: ClipboardCheck },
-  { to: "/decisions", label: "Decisions Needed", icon: GitBranch },
-  { to: "/assets", label: "Assets", icon: FolderOpen },
   { to: "/creators", label: "Creator Partnerships", icon: Users },
+  { to: "/campaigns", label: "Campaigns", icon: Megaphone },
+  { to: "/communications", label: "Communications", icon: MessageSquare },
   { to: "/knowledge", label: "Knowledge Center", icon: BookOpen },
-  { to: "/website", label: "Website & Shopify", icon: Globe },
-  { to: "/video", label: "Video Production", icon: Video },
-  { to: "/seo", label: "SEO & Articles", icon: FileText },
-  { to: "/email", label: "Email & Klaviyo", icon: Mail },
-  { to: "/team-actions", label: "Team Actions", icon: ListChecks },
-  { to: "/comments", label: "Comments", icon: MessageSquare },
-  { to: "/archive", label: "Published Archive", icon: Archive },
-  { to: "/admin", label: "Admin", icon: Shield },
+  { to: "/content", label: "Content", icon: FolderOpen },
+  { to: "/analytics", label: "Analytics", icon: BarChart3 },
+  { to: "/settings", label: "Settings", icon: SettingsIcon },
 ];
 
 export function AppShell() {
@@ -62,6 +51,20 @@ export function AppShell() {
       setCurrentActor(null);
     }
   }, [auth]);
+
+  // Background Gmail poller — checks every 3 minutes for new creator replies
+  // once the user is signed in with a role. Silently skipped if Gmail isn't
+  // connected (the server fn returns { polled: false, reason: "not_connected" }).
+  const poll = useServerFn(pollGmailForReplies);
+  useEffect(() => {
+    if (auth.status !== "authenticated" || !auth.profile.role) return;
+    let cancelled = false;
+    const tick = () => { if (!cancelled) void poll().catch(() => {}); };
+    // Kick off ~10s after mount, then every 3 minutes.
+    const initial = window.setTimeout(tick, 10_000);
+    const interval = window.setInterval(tick, 3 * 60_000);
+    return () => { cancelled = true; window.clearTimeout(initial); window.clearInterval(interval); };
+  }, [auth.status, auth.profile?.role, poll]);
 
   if (auth.status === "loading") {
     return (

@@ -34,6 +34,7 @@ import {
 import { PageHeader } from "@/components/PageHeader";
 import { useCurrentTeamMember } from "@/lib/current-team-member";
 import { ArrowLeft, ExternalLink, Mail, Copy, Send, Truck, ShieldCheck, Clock, AlertCircle, UserCheck, FileText, ListChecks, StickyNote, Compass, Activity as ActivityIcon, Heart, CalendarClock } from "lucide-react";
+import { GmailPanel } from "@/components/creators/GmailPanel";
 
 
 export const Route = createFileRoute("/creators/$id")({
@@ -72,7 +73,7 @@ export const Route = createFileRoute("/creators/$id")({
   component: CreatorDetail,
 });
 
-type Tab = "overview" | "assignment" | "outreach" | "email" | "shipping" | "content" | "approval" | "activity" | "notes" | "raw";
+type Tab = "overview" | "assignment" | "outreach" | "email" | "gmail" | "shipping" | "content" | "approval" | "activity" | "notes" | "raw";
 
 function CreatorDetail() {
   const { creator: c } = Route.useLoaderData();
@@ -126,6 +127,7 @@ function CreatorDetail() {
             ["assignment", "Assignment"],
             ["outreach", "Outreach"],
             ["email", "Draft email"],
+            ["gmail", "Gmail"],
             ["shipping", "Shipping"],
             ["content", "Content"],
             ["activity", "Activity timeline"],
@@ -150,6 +152,7 @@ function CreatorDetail() {
       {tab === "assignment" && <AssignmentPanel c={c} />}
       {tab === "outreach" && <OutreachPanel c={c} />}
       {tab === "email" && <EmailDrafter c={c} />}
+      {tab === "gmail" && <GmailPanel c={c} />}
       {tab === "shipping" && <Shipping c={c} />}
       {tab === "content" && <ContentPanel c={c} />}
       {tab === "activity" && <ActivityTimeline c={c} />}
