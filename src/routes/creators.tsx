@@ -113,7 +113,21 @@ function CreatorsList() {
         }
       />
 
-      {/* Summary */}
+      {/* Operations dashboard (workflow view) */}
+      <section className="mb-3">
+        <div className="mb-2 text-[11px] uppercase tracking-[0.22em] text-[color:var(--gold)]">Operations dashboard</div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+          <OpsCard icon={<Mail className="h-3.5 w-3.5" />} label="Ready for outreach" value={ops.readyForOutreach} tone="ready" />
+          <OpsCard icon={<Users className="h-3.5 w-3.5" />} label="Assigned to Rena" value={ops.rena} />
+          <OpsCard icon={<Users className="h-3.5 w-3.5" />} label="Assigned to Vina" value={ops.vina} />
+          <OpsCard icon={<Clock className="h-3.5 w-3.5" />} label="Waiting for reply" value={ops.waiting} tone="warn" />
+          <OpsCard icon={<CalendarClock className="h-3.5 w-3.5" />} label="Follow-up due today" value={ops.followUpDueToday} tone="alert" />
+          <OpsCard icon={<Package className="h-3.5 w-3.5" />} label="Sample pending" value={ops.samplePending} />
+          <OpsCard icon={<Handshake className="h-3.5 w-3.5" />} label="Active partnerships" value={ops.activePartnerships} tone="ready" />
+        </div>
+      </section>
+
+      {/* Summary (sheet-derived) */}
       <section className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
         <SummaryCard label="Total" value={counts.total} />
         <SummaryCard label="Ready for outreach" value={counts.ready} tone="ready" />
