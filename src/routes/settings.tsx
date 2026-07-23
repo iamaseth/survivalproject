@@ -909,3 +909,154 @@ function GmailOpsSubsection() {
     </div>
   );
 }
+
+/* ---------------- Test Creator (Exec only) ---------------- */
+function TestCreatorSubsection() {
+  const auth = useAuth();
+  const tm = useTestMode();
+  const testCreators = useTestCreators();
+  const getStatus = useServerFn(getGmailStatus);
+  const purge = useServerFn(purgeTestCreatorArtifacts);
+  const [gmailEmail, setGmailEmail] = useState<string | null>(null);
+  const [email, setEmail] = useState<string>("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const s = await getStatus();
+        if (s.connected) setGmailEmail(s.emailAddress ?? null);
+      } catch { /* ignore */ }
+    })();
+  }, [getStatus]);
+
+  useEffect(() => {
+    if (!email) {
+      setEmail(
+        gmailEmail ??
+        (auth.status === "authenticated" ? auth.profile.email : ""),
+      );
+    }
+  }, [gmailEmail, auth, email]);
+
+  const canCreate = auth.status === "authenticated" && !!email.trim();
+
+  const onCreate = () => {
+    if (!canCreate || auth.status !== "authenticated") return;
+    setBusy(true);
+    try {
+      const entry = createTestCreator({
+        email: email.trim(),
+        ownerUserId: auth.profile.userId,
+        ownerName: auth.profile.fullName,
+        ownerRoleLabel: auth.profile.roleLabel,
+        testSessionId: tm.sessionId,
+      });
+      toast.success("Test creator created", {
+        description: `${entry.name} · id ${entry.id}${tm.enabled ? " · tagged to current Test Mode session" : " (Test Mode is off — session tag is empty)"}`,
+      });
+    } finally { setBusy(false); }
+  };
+
+  const onDelete = async (id: string, name: string) => {
+    if (!confirm(`Delete test creator "${name}" and all linked test activity? This purges cached Gmail messages and error logs tied to this record. The recipient's Gmail inbox is not modified.`)) return;
+    try {
+      const r = await purge({ data: { creatorId: id } });
+      clearWorkspaceForIds([id]);
+      deleteTestCreator(id);
+      toast.success("Removed", {
+        description: `${r.messagesDeleted} cached message${r.messagesDeleted === 1 ? "" : "s"} · ${r.errorsDeleted} send-error log${r.errorsDeleted === 1 ? "" : "s"} purged.`,
+      });
+    } catch (e) {
+      toast.error("Delete failed", { description: e instanceof Error ? e.message : String(e) });
+    }
+  };
+
+  return (
+    <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50/40 p-4">
+      <div className="mb-2 flex items-center gap-2">
+        <Beaker className="h-4 w-4 text-amber-700" />
+        <h3 className="text-sm font-medium">Safe Gmail test workflow</h3>
+        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-900">Executive Admin</span>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Create a synthetic <span className="font-mono">TEST – Gmail Workflow</span> creator to safely rehearse
+        drafting, sending, labels, and reply syncing without touching a real influencer record.
+        While Test Mode is on, every outbound email is redirected to
+        <span className="ml-1 font-mono">{TEST_RECIPIENT_EMAIL}</span> and direct-send from real creator
+        records is blocked.
+      </p>
+
+      {!tm.enabled ? (
+        <div className="mt-3 flex items-start gap-1.5 rounded-md border border-amber-200 bg-white p-2 text-[11px] text-amber-900">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>
+            Turn Test Mode on above before sending, so the new creator's activity is tagged with a session id
+            and the recipient-redirect safety net is active.
+          </span>
+        </div>
+      ) : null}
+
+      <div className="mt-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+        <label className="text-xs">
+          <span className="text-muted-foreground">Test creator email (defaults to your connected Gmail)</span>
+          <input
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            className="mt-1 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+          />
+          <span className="mt-1 block text-[10px] text-muted-foreground">
+            Stored on the test record only. Actual Gmail delivery while Test Mode is on always goes to {TEST_RECIPIENT_EMAIL}.
+          </span>
+        </label>
+        <button
+          onClick={onCreate}
+          disabled={!canCreate || busy}
+          className="inline-flex items-center gap-2 rounded-md bg-[color:var(--forest)] px-4 py-2 text-sm font-medium text-white hover:opacity-95 disabled:opacity-60"
+        >
+          <Beaker className="h-4 w-4" /> Create Test Creator
+        </button>
+      </div>
+
+      {testCreators.length === 0 ? (
+        <div className="mt-3 rounded-md border border-dashed border-amber-200 p-3 text-[11px] text-muted-foreground">
+          No test creators yet.
+        </div>
+      ) : (
+        <ul className="mt-3 divide-y divide-amber-200 rounded-md border border-amber-200 bg-white">
+          {testCreators.map((t) => (
+            <li key={t.id} className="flex flex-wrap items-center justify-between gap-3 px-3 py-2 text-xs">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{t.name}</span>
+                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900">Test</span>
+                  <span className="font-mono text-[10px] text-muted-foreground">{t.id}</span>
+                </div>
+                <div className="mt-0.5 text-[11px] text-muted-foreground">
+                  {t.email} · owner {t.ownerName ?? "—"} · session {t.testSessionId ?? "—"} · created {new Date(t.createdAt).toLocaleString()}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <RouterLink
+                  to="/creators/$id"
+                  params={{ id: t.id }}
+                  className="rounded-md border border-border bg-background px-2 py-1 text-[11px] hover:bg-secondary"
+                >
+                  Open
+                </RouterLink>
+                <button
+                  onClick={() => onDelete(t.id, t.name)}
+                  className="inline-flex items-center gap-1 rounded-md border border-red-300 bg-red-50 px-2 py-1 text-[11px] font-medium text-red-800 hover:bg-red-100"
+                >
+                  <Trash2 className="h-3 w-3" /> Delete
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
