@@ -56,3 +56,10 @@ function serverSnapshot() { return DEFAULT; }
 export function useTestMode(): TestModeState {
   return useSyncExternalStore(subscribe, snapshot, serverSnapshot);
 }
+
+// Auto-seed the fixed TEST-0001 creator whenever a Test Mode session is
+// already active on app load (e.g. page refresh mid-session).
+if (typeof window !== "undefined" && cache.enabled) {
+  try { ensureFixedTestCreator(cache.sessionId); } catch { /* ignore */ }
+}
+}
