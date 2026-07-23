@@ -144,25 +144,79 @@ export type Database = {
         Row: {
           email_address: string | null
           label_ids: Json
+          last_error_at: string | null
+          last_error_reason: string | null
+          last_error_status: number | null
           last_history_id: string | null
           last_polled_at: string | null
+          last_success_at: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           email_address?: string | null
           label_ids?: Json
+          last_error_at?: string | null
+          last_error_reason?: string | null
+          last_error_status?: number | null
           last_history_id?: string | null
           last_polled_at?: string | null
+          last_success_at?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           email_address?: string | null
           label_ids?: Json
+          last_error_at?: string | null
+          last_error_reason?: string | null
+          last_error_status?: number | null
           last_history_id?: string | null
           last_polled_at?: string | null
+          last_success_at?: string | null
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      gmail_send_errors: {
+        Row: {
+          action: string
+          created_at: string
+          creator_id: string | null
+          creator_name: string | null
+          error_reason: string | null
+          http_status: number | null
+          id: string
+          recipient: string | null
+          sender_email: string | null
+          subject: string | null
+          user_id: string
+        }
+        Insert: {
+          action?: string
+          created_at?: string
+          creator_id?: string | null
+          creator_name?: string | null
+          error_reason?: string | null
+          http_status?: number | null
+          id?: string
+          recipient?: string | null
+          sender_email?: string | null
+          subject?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          creator_id?: string | null
+          creator_name?: string | null
+          error_reason?: string | null
+          http_status?: number | null
+          id?: string
+          recipient?: string | null
+          sender_email?: string | null
+          subject?: string | null
           user_id?: string
         }
         Relationships: []
