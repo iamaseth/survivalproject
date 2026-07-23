@@ -62,4 +62,3 @@ export function useTestMode(): TestModeState {
 if (typeof window !== "undefined" && cache.enabled) {
   try { ensureFixedTestCreator(cache.sessionId); } catch { /* ignore */ }
 }
-}
