@@ -39,6 +39,7 @@ export function enableTestMode(): TestModeState {
   const id = `TEST-${now.toISOString().replace(/[:.]/g, "-").slice(0, 19)}`;
   cache = { enabled: true, sessionId: id, startedAt: now.toISOString() };
   emit();
+  try { ensureFixedTestCreator(id); } catch { /* ignore */ }
   return cache;
 }
 
