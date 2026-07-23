@@ -15,8 +15,9 @@ import {
   type CreatorRow,
   type OutreachOwner,
 } from "@/lib/creator-partnerships";
+import { useDashboardCounts } from "@/lib/creator-workspace";
 import { PageHeader } from "@/components/PageHeader";
-import { ExternalLink, Search, Download, AlertCircle, Clock, Mail, Truck, ShieldCheck } from "lucide-react";
+import { ExternalLink, Search, Download, AlertCircle, Clock, Mail, Truck, ShieldCheck, Users, CalendarClock, Package, Handshake } from "lucide-react";
 
 export const Route = createFileRoute("/creators")({
   component: CreatorsLayout,
@@ -52,6 +53,7 @@ const QUEUES: { key: QueueKey; label: string; icon: React.ComponentType<{ classN
 ];
 
 function CreatorsList() {
+  const ops = useDashboardCounts();
   const [q, setQ] = useState("");
   const [queue, setQueue] = useState<QueueKey>("all");
   const [ownerFilter, setOwnerFilter] = useState<"All" | "RENA" | "VINA" | "Unassigned">("All");
@@ -111,7 +113,21 @@ function CreatorsList() {
         }
       />
 
-      {/* Summary */}
+      {/* Operations dashboard (workflow view) */}
+      <section className="mb-3">
+        <div className="mb-2 text-[11px] uppercase tracking-[0.22em] text-[color:var(--gold)]">Operations dashboard</div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+          <OpsCard icon={<Mail className="h-3.5 w-3.5" />} label="Ready for outreach" value={ops.readyForOutreach} tone="ready" />
+          <OpsCard icon={<Users className="h-3.5 w-3.5" />} label="Assigned to Rena" value={ops.rena} />
+          <OpsCard icon={<Users className="h-3.5 w-3.5" />} label="Assigned to Vina" value={ops.vina} />
+          <OpsCard icon={<Clock className="h-3.5 w-3.5" />} label="Waiting for reply" value={ops.waiting} tone="warn" />
+          <OpsCard icon={<CalendarClock className="h-3.5 w-3.5" />} label="Follow-up due today" value={ops.followUpDueToday} tone="alert" />
+          <OpsCard icon={<Package className="h-3.5 w-3.5" />} label="Sample pending" value={ops.samplePending} />
+          <OpsCard icon={<Handshake className="h-3.5 w-3.5" />} label="Active partnerships" value={ops.activePartnerships} tone="ready" />
+        </div>
+      </section>
+
+      {/* Summary (sheet-derived) */}
       <section className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
         <SummaryCard label="Total" value={counts.total} />
         <SummaryCard label="Ready for outreach" value={counts.ready} tone="ready" />
@@ -300,6 +316,17 @@ function SummaryCard({ label, value, tone }: { label: string; value: number; ton
     <div className={`rounded-lg border p-3 ${border}`}>
       <div className="font-display text-2xl leading-none text-foreground">{value}</div>
       <div className="mt-1 text-[11px] text-muted-foreground">{label}</div>
+    </div>
+  );
+}
+
+function OpsCard({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: number; tone?: "warn" | "alert" | "ready" }) {
+  const border =
+    tone === "alert" ? "border-red-300 bg-red-50/50" : tone === "warn" ? "border-amber-300 bg-amber-50/50" : tone === "ready" ? "border-emerald-300 bg-emerald-50/50" : "border-border bg-card";
+  return (
+    <div className={`rounded-lg border p-3 ${border}`}>
+      <div className="mb-1 flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">{icon}{label}</div>
+      <div className="font-display text-2xl leading-none text-foreground">{value}</div>
     </div>
   );
 }
