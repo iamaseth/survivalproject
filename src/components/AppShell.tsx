@@ -1,4 +1,4 @@
-import { Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { Link, Outlet, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -194,6 +194,7 @@ function ProfileMenu({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
@@ -246,8 +247,9 @@ function ProfileMenu({
             </div>
           </div>
           <div className="py-1">
-            <MenuItem icon={UserIcon} label="Profile" onClick={() => setOpen(false)} />
-            <MenuItem icon={SettingsIcon} label="Settings" onClick={() => setOpen(false)} />
+            <MenuItem icon={UserIcon} label="Profile" onClick={() => { setOpen(false); navigate({ to: "/settings" }); }} />
+            <MenuItem icon={SettingsIcon} label="Settings" onClick={() => { setOpen(false); navigate({ to: "/settings" }); }} />
+
           </div>
           <div className="border-t border-border pt-1">
             <MenuItem
