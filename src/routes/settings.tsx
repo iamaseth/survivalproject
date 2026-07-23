@@ -60,7 +60,7 @@ function GmailSection() {
   const [connState, setConnState] = useState<
     | { kind: "loading" }
     | { kind: "disconnected" }
-    | { kind: "connected"; email: string | null; lastPolledAt: string | null }
+    | { kind: "connected"; email: string | null; lastPolledAt: string | null; needsReconnect: boolean; lastErrorStatus: number | null; lastErrorReason: string | null }
   >({ kind: "loading" });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -69,7 +69,14 @@ function GmailSection() {
   const refresh = useCallback(async () => {
     try {
       const s = await status();
-      if (s.connected) setConnState({ kind: "connected", email: s.emailAddress, lastPolledAt: s.lastPolledAt });
+      if (s.connected) setConnState({
+        kind: "connected",
+        email: s.emailAddress,
+        lastPolledAt: s.lastPolledAt,
+        needsReconnect: !!s.needsReconnect,
+        lastErrorStatus: s.lastErrorStatus ?? null,
+        lastErrorReason: s.lastErrorReason ?? null,
+      });
       else setConnState({ kind: "disconnected" });
     } catch (e) {
       setConnState({ kind: "disconnected" });
@@ -129,6 +136,19 @@ function GmailSection() {
                 <CheckCircle2 className="h-4 w-4" />
                 Connected{connState.email ? ` as ${connState.email}` : ""}
               </div>
+              {connState.needsReconnect ? (
+                <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-900">
+                  <div className="flex items-center gap-1.5 font-medium"><ShieldAlert className="h-3.5 w-3.5" /> Reconnect required</div>
+                  <div className="mt-1">Gmail returned {connState.lastErrorStatus ?? "an error"}: {connState.lastErrorReason ?? "authorization failed"}. Sending and reply syncing are paused until you reconnect.</div>
+                  <button
+                    onClick={onConnect}
+                    disabled={busy}
+                    className="mt-2 inline-flex items-center gap-2 rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
+                  >
+                    {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />} Reconnect Gmail
+                  </button>
+                </div>
+              ) : null}
               {connState.lastPolledAt ? (
                 <div className="text-xs text-muted-foreground">
                   Last checked for replies: {new Date(connState.lastPolledAt).toLocaleString()}
