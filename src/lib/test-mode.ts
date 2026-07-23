@@ -1,6 +1,8 @@
 // Test Mode — client-side flag that tags any activity/workspace edits made
 // during a testing session so they can be wiped later without touching real data.
 import { useSyncExternalStore } from "react";
+import { ensureFixedTestCreator } from "./test-creators";
+
 
 const LS_KEY = "st.testMode.v1";
 
@@ -37,6 +39,7 @@ export function enableTestMode(): TestModeState {
   const id = `TEST-${now.toISOString().replace(/[:.]/g, "-").slice(0, 19)}`;
   cache = { enabled: true, sessionId: id, startedAt: now.toISOString() };
   emit();
+  try { ensureFixedTestCreator(id); } catch { /* ignore */ }
   return cache;
 }
 
@@ -52,4 +55,10 @@ function serverSnapshot() { return DEFAULT; }
 
 export function useTestMode(): TestModeState {
   return useSyncExternalStore(subscribe, snapshot, serverSnapshot);
+}
+
+// Auto-seed the fixed TEST-0001 creator whenever a Test Mode session is
+// already active on app load (e.g. page refresh mid-session).
+if (typeof window !== "undefined" && cache.enabled) {
+  try { ensureFixedTestCreator(cache.sessionId); } catch { /* ignore */ }
 }
