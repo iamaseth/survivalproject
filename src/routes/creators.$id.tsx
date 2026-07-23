@@ -59,8 +59,6 @@ export const Route = createFileRoute("/creators/$id")({
   component: CreatorDetail,
 });
 
-type Tab = "overview" | "outreach" | "email" | "shipping" | "approval" | "raw";
-
 type Tab = "overview" | "assignment" | "outreach" | "email" | "shipping" | "content" | "approval" | "activity" | "notes" | "raw";
 
 function CreatorDetail() {
