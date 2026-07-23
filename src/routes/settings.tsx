@@ -291,19 +291,18 @@ function DataManagementSection() {
 
   const [dbCounts, setDbCounts] = useState<{ gmailMessages: number; gmailPollStates: number; gmailConnections: number; auditRows: number } | null>(null);
   const [phase, setPhase] = useState<Phase>({ step: "idle" });
-  const [auditRows, setAuditRows] = useState<
-    Array<{
-      id: string; actor_name: string | null; actor_email: string | null; actor_role: string | null;
-      action: string; reset_type: string | null; affected_records: Record<string, unknown> | null;
-      notes: string | null; created_at: string;
-    }>
-  >([]);
+  type AuditRow = {
+    id: string; actor_name: string | null; actor_email: string | null; actor_role: string | null;
+    action: string; reset_type: string | null; affected_records: unknown;
+    notes: string | null; created_at: string;
+  };
+  const [auditRows, setAuditRows] = useState<AuditRow[]>([]);
 
   const refresh = useCallback(async () => {
     try {
       const [p, a] = await Promise.all([preview(), audit()]);
       setDbCounts(p);
-      setAuditRows(a.rows);
+      setAuditRows(a.rows as AuditRow[]);
     } catch { /* ignore — likely permission denied on non-exec */ }
   }, [preview, audit]);
 
@@ -470,7 +469,7 @@ function DataManagementSection() {
                           {r.reset_type ? <div className="text-[10px] text-muted-foreground">{r.reset_type}</div> : null}
                         </td>
                         <td className="px-3 py-2 font-mono text-[11px] text-muted-foreground">
-                          {Object.entries(r.affected_records || {})
+                          {Object.entries((r.affected_records as Record<string, unknown>) || {})
                             .map(([k, v]) => `${k}: ${String(v)}`)
                             .join(" · ")}
                         </td>
