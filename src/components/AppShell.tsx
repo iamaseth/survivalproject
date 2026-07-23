@@ -247,8 +247,9 @@ function ProfileMenu({
             </div>
           </div>
           <div className="py-1">
-            <MenuItem icon={UserIcon} label="Profile" onClick={() => setOpen(false)} />
-            <MenuItem icon={SettingsIcon} label="Settings" onClick={() => setOpen(false)} />
+            <MenuItem icon={UserIcon} label="Profile" onClick={() => { setOpen(false); navigate({ to: "/settings" }); }} />
+            <MenuItem icon={SettingsIcon} label="Settings" onClick={() => { setOpen(false); navigate({ to: "/settings" }); }} />
+
           </div>
           <div className="border-t border-border pt-1">
             <MenuItem
