@@ -60,7 +60,7 @@ function CommunicationsPage() {
         eyebrow="Communications"
         title="Team inbox"
         description="Every creator email across the team — pulled from each teammate's own Gmail."
-        right={
+        actions={
           <button
             onClick={doPoll}
             disabled={polling || !connected}

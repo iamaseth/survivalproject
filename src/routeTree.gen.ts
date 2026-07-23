@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as WebsiteRouteImport } from './routes/website'
 import { Route as VideoRouteImport } from './routes/video'
 import { Route as TeamActionsRouteImport } from './routes/team-actions'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SeoRouteImport } from './routes/seo'
 import { Route as ReviewRouteImport } from './routes/review'
 import { Route as LeadsRouteImport } from './routes/leads'
@@ -19,10 +20,14 @@ import { Route as KnowledgeRouteImport } from './routes/knowledge'
 import { Route as EmailRouteImport } from './routes/email'
 import { Route as DecisionsRouteImport } from './routes/decisions'
 import { Route as CreatorsRouteImport } from './routes/creators'
+import { Route as ContentRouteImport } from './routes/content'
+import { Route as CommunicationsRouteImport } from './routes/communications'
 import { Route as CommentsRouteImport } from './routes/comments'
+import { Route as CampaignsRouteImport } from './routes/campaigns'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AssetsRouteImport } from './routes/assets'
 import { Route as ArchiveRouteImport } from './routes/archive'
+import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as KnowledgeIdRouteImport } from './routes/knowledge.$id'
@@ -42,6 +47,11 @@ const VideoRoute = VideoRouteImport.update({
 const TeamActionsRoute = TeamActionsRouteImport.update({
   id: '/team-actions',
   path: '/team-actions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SeoRoute = SeoRouteImport.update({
@@ -79,9 +89,24 @@ const CreatorsRoute = CreatorsRouteImport.update({
   path: '/creators',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ContentRoute = ContentRouteImport.update({
+  id: '/content',
+  path: '/content',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommunicationsRoute = CommunicationsRouteImport.update({
+  id: '/communications',
+  path: '/communications',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CommentsRoute = CommentsRouteImport.update({
   id: '/comments',
   path: '/comments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CampaignsRoute = CampaignsRouteImport.update({
+  id: '/campaigns',
+  path: '/campaigns',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -97,6 +122,11 @@ const AssetsRoute = AssetsRouteImport.update({
 const ArchiveRoute = ArchiveRouteImport.update({
   id: '/archive',
   path: '/archive',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalyticsRoute = AnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -128,10 +158,14 @@ const AssetsIdRoute = AssetsIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/analytics': typeof AnalyticsRoute
   '/archive': typeof ArchiveRoute
   '/assets': typeof AssetsRouteWithChildren
   '/auth': typeof AuthRoute
+  '/campaigns': typeof CampaignsRoute
   '/comments': typeof CommentsRoute
+  '/communications': typeof CommunicationsRoute
+  '/content': typeof ContentRoute
   '/creators': typeof CreatorsRouteWithChildren
   '/decisions': typeof DecisionsRoute
   '/email': typeof EmailRoute
@@ -139,6 +173,7 @@ export interface FileRoutesByFullPath {
   '/leads': typeof LeadsRoute
   '/review': typeof ReviewRoute
   '/seo': typeof SeoRoute
+  '/settings': typeof SettingsRoute
   '/team-actions': typeof TeamActionsRoute
   '/video': typeof VideoRoute
   '/website': typeof WebsiteRoute
@@ -149,10 +184,14 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/analytics': typeof AnalyticsRoute
   '/archive': typeof ArchiveRoute
   '/assets': typeof AssetsRouteWithChildren
   '/auth': typeof AuthRoute
+  '/campaigns': typeof CampaignsRoute
   '/comments': typeof CommentsRoute
+  '/communications': typeof CommunicationsRoute
+  '/content': typeof ContentRoute
   '/creators': typeof CreatorsRouteWithChildren
   '/decisions': typeof DecisionsRoute
   '/email': typeof EmailRoute
@@ -160,6 +199,7 @@ export interface FileRoutesByTo {
   '/leads': typeof LeadsRoute
   '/review': typeof ReviewRoute
   '/seo': typeof SeoRoute
+  '/settings': typeof SettingsRoute
   '/team-actions': typeof TeamActionsRoute
   '/video': typeof VideoRoute
   '/website': typeof WebsiteRoute
@@ -171,10 +211,14 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/analytics': typeof AnalyticsRoute
   '/archive': typeof ArchiveRoute
   '/assets': typeof AssetsRouteWithChildren
   '/auth': typeof AuthRoute
+  '/campaigns': typeof CampaignsRoute
   '/comments': typeof CommentsRoute
+  '/communications': typeof CommunicationsRoute
+  '/content': typeof ContentRoute
   '/creators': typeof CreatorsRouteWithChildren
   '/decisions': typeof DecisionsRoute
   '/email': typeof EmailRoute
@@ -182,6 +226,7 @@ export interface FileRoutesById {
   '/leads': typeof LeadsRoute
   '/review': typeof ReviewRoute
   '/seo': typeof SeoRoute
+  '/settings': typeof SettingsRoute
   '/team-actions': typeof TeamActionsRoute
   '/video': typeof VideoRoute
   '/website': typeof WebsiteRoute
@@ -194,10 +239,14 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/analytics'
     | '/archive'
     | '/assets'
     | '/auth'
+    | '/campaigns'
     | '/comments'
+    | '/communications'
+    | '/content'
     | '/creators'
     | '/decisions'
     | '/email'
@@ -205,6 +254,7 @@ export interface FileRouteTypes {
     | '/leads'
     | '/review'
     | '/seo'
+    | '/settings'
     | '/team-actions'
     | '/video'
     | '/website'
@@ -215,10 +265,14 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/admin'
+    | '/analytics'
     | '/archive'
     | '/assets'
     | '/auth'
+    | '/campaigns'
     | '/comments'
+    | '/communications'
+    | '/content'
     | '/creators'
     | '/decisions'
     | '/email'
@@ -226,6 +280,7 @@ export interface FileRouteTypes {
     | '/leads'
     | '/review'
     | '/seo'
+    | '/settings'
     | '/team-actions'
     | '/video'
     | '/website'
@@ -236,10 +291,14 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/admin'
+    | '/analytics'
     | '/archive'
     | '/assets'
     | '/auth'
+    | '/campaigns'
     | '/comments'
+    | '/communications'
+    | '/content'
     | '/creators'
     | '/decisions'
     | '/email'
@@ -247,6 +306,7 @@ export interface FileRouteTypes {
     | '/leads'
     | '/review'
     | '/seo'
+    | '/settings'
     | '/team-actions'
     | '/video'
     | '/website'
@@ -258,10 +318,14 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
+  AnalyticsRoute: typeof AnalyticsRoute
   ArchiveRoute: typeof ArchiveRoute
   AssetsRoute: typeof AssetsRouteWithChildren
   AuthRoute: typeof AuthRoute
+  CampaignsRoute: typeof CampaignsRoute
   CommentsRoute: typeof CommentsRoute
+  CommunicationsRoute: typeof CommunicationsRoute
+  ContentRoute: typeof ContentRoute
   CreatorsRoute: typeof CreatorsRouteWithChildren
   DecisionsRoute: typeof DecisionsRoute
   EmailRoute: typeof EmailRoute
@@ -269,6 +333,7 @@ export interface RootRouteChildren {
   LeadsRoute: typeof LeadsRoute
   ReviewRoute: typeof ReviewRoute
   SeoRoute: typeof SeoRoute
+  SettingsRoute: typeof SettingsRoute
   TeamActionsRoute: typeof TeamActionsRoute
   VideoRoute: typeof VideoRoute
   WebsiteRoute: typeof WebsiteRoute
@@ -295,6 +360,13 @@ declare module '@tanstack/react-router' {
       path: '/team-actions'
       fullPath: '/team-actions'
       preLoaderRoute: typeof TeamActionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/seo': {
@@ -346,11 +418,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CreatorsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/content': {
+      id: '/content'
+      path: '/content'
+      fullPath: '/content'
+      preLoaderRoute: typeof ContentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/communications': {
+      id: '/communications'
+      path: '/communications'
+      fullPath: '/communications'
+      preLoaderRoute: typeof CommunicationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/comments': {
       id: '/comments'
       path: '/comments'
       fullPath: '/comments'
       preLoaderRoute: typeof CommentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/campaigns': {
+      id: '/campaigns'
+      path: '/campaigns'
+      fullPath: '/campaigns'
+      preLoaderRoute: typeof CampaignsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -372,6 +465,13 @@ declare module '@tanstack/react-router' {
       path: '/archive'
       fullPath: '/archive'
       preLoaderRoute: typeof ArchiveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/analytics': {
+      id: '/analytics'
+      path: '/analytics'
+      fullPath: '/analytics'
+      preLoaderRoute: typeof AnalyticsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -450,10 +550,14 @@ const KnowledgeRouteWithChildren = KnowledgeRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
+  AnalyticsRoute: AnalyticsRoute,
   ArchiveRoute: ArchiveRoute,
   AssetsRoute: AssetsRouteWithChildren,
   AuthRoute: AuthRoute,
+  CampaignsRoute: CampaignsRoute,
   CommentsRoute: CommentsRoute,
+  CommunicationsRoute: CommunicationsRoute,
+  ContentRoute: ContentRoute,
   CreatorsRoute: CreatorsRouteWithChildren,
   DecisionsRoute: DecisionsRoute,
   EmailRoute: EmailRoute,
@@ -461,6 +565,7 @@ const rootRouteChildren: RootRouteChildren = {
   LeadsRoute: LeadsRoute,
   ReviewRoute: ReviewRoute,
   SeoRoute: SeoRoute,
+  SettingsRoute: SettingsRoute,
   TeamActionsRoute: TeamActionsRoute,
   VideoRoute: VideoRoute,
   WebsiteRoute: WebsiteRoute,
