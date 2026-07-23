@@ -77,6 +77,42 @@ export function createTestCreator(args: {
   return entry;
 }
 
+/**
+ * Fixed default test creator seeded automatically for the active Test Mode
+ * session. Idempotent — safe to call any number of times; will not overwrite
+ * a manually-edited existing TEST-0001 entry.
+ */
+export const FIXED_TEST_CREATOR_ID = "TEST-0001";
+
+export function ensureFixedTestCreator(sessionId: string | null): TestCreatorEntry {
+  const existing = cache.find((c) => c.id === FIXED_TEST_CREATOR_ID);
+  if (existing) {
+    // Keep session id in sync with the currently-active Test Mode session so
+    // "Delete Test Creators Only" scoped to this session picks it up.
+    if (sessionId && existing.testSessionId !== sessionId) {
+      cache = cache.map((c) =>
+        c.id === FIXED_TEST_CREATOR_ID ? { ...c, testSessionId: sessionId } : c,
+      );
+      emit();
+      return cache.find((c) => c.id === FIXED_TEST_CREATOR_ID)!;
+    }
+    return existing;
+  }
+  const entry: TestCreatorEntry = {
+    id: FIXED_TEST_CREATOR_ID,
+    name: "TEST – Gmail Workflow",
+    email: TEST_RECIPIENT_EMAIL,
+    ownerUserId: null,
+    ownerName: "Seth",
+    ownerRoleLabel: "Owner",
+    testSessionId: sessionId,
+    createdAt: new Date().toISOString(),
+  };
+  cache = [entry, ...cache];
+  emit();
+  return entry;
+}
+
 export function deleteTestCreator(id: string): boolean {
   const next = cache.filter((c) => c.id !== id);
   if (next.length === cache.length) return false;
