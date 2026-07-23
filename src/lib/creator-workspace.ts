@@ -6,6 +6,7 @@
 // tables so we can swap the store later without touching the UI.
 import { useSyncExternalStore } from "react";
 import { CREATORS, type CreatorRow, type OutreachOwner } from "./creator-partnerships";
+import { getTestMode } from "./test-mode";
 
 // ---------- Types (future Supabase schema) ----------
 export type OutreachStatus =
@@ -309,13 +310,7 @@ export function addActivity(c: CreatorRow, ev: Omit<Activity, "id">) {
   const base = defaultsFor(c);
   const existing = cache[c.id]?.activity ?? [];
   const actor = getCurrentActor();
-  // Read Test Mode without a static import to avoid a circular module load.
-  let tm: { enabled: boolean; sessionId: string | null } = { enabled: false, sessionId: null };
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require("./test-mode") as typeof import("./test-mode");
-    tm = mod.getTestMode();
-  } catch { /* SSR / test env */ }
+  const tm = getTestMode();
   const enriched: Omit<Activity, "id"> = {
     ...ev,
     time: ev.time ?? nowTime(),
