@@ -14,10 +14,11 @@ import {
   type CreatorRow,
   type OutreachOwner,
 } from "@/lib/creator-partnerships";
-import { useDashboardCounts, getWorkspace, isWaitingForReply } from "@/lib/creator-workspace";
+import { useDashboardCounts, getWorkspace, isWaitingForReply, isTestCreatorId } from "@/lib/creator-workspace";
+import { useTestCreators, testCreatorToRow } from "@/lib/test-creators";
 import { PageHeader } from "@/components/PageHeader";
 import { PersonalizedDashboard } from "@/components/creators/PersonalizedDashboard";
-import { ExternalLink, Search, Download, AlertCircle, Clock, Mail, Truck, ShieldCheck, Users, CalendarClock, Package, Handshake } from "lucide-react";
+import { ExternalLink, Search, Download, AlertCircle, Clock, Mail, Truck, ShieldCheck, Users, CalendarClock, Package, Handshake, Beaker } from "lucide-react";
 
 export const Route = createFileRoute("/creators")({
   component: CreatorsLayout,
