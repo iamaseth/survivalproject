@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { useAuth } from "@/lib/current-user";
-import { connectAppUser } from "@/integrations/lovable/appUserConnectorClient";
+import { connectAppUser, type AppUserOAuthTraceEvent } from "@/integrations/lovable/appUserConnectorClient";
 import {
   getGmailConnectionStatus, startGmailConnect, saveGmailConnection, disconnectGmail,
 } from "@/lib/gmail.functions";
@@ -64,6 +64,7 @@ function GmailSection() {
   >({ kind: "loading" });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [oauthTrace, setOauthTrace] = useState<AppUserOAuthTraceEvent[]>([]);
 
   const refresh = useCallback(async () => {
     try {
@@ -79,12 +80,14 @@ function GmailSection() {
   useEffect(() => { refresh(); }, [refresh]);
 
   const onConnect = async () => {
+    setOauthTrace([]);
     setBusy(true); setMsg(null);
     try {
       const result = await connectAppUser({
         connectorId: "google_mail",
         gatewayBaseUrl: GATEWAY_BASE_URL,
         start: (targetOrigin) => start({ data: { targetOrigin } }),
+        onTrace: (event) => setOauthTrace((current) => [...current, event]),
       });
       if (!result.success) { setMsg(result.error ?? "Connection failed"); return; }
       if (!result.connectionAPIKey) { setMsg("Offline access disabled — cannot store connection."); return; }
@@ -157,10 +160,32 @@ function GmailSection() {
             </div>
           )}
           {msg ? <p className="mt-3 text-xs text-muted-foreground">{msg}</p> : null}
+          {oauthTrace.length > 0 ? <OAuthTracePanel events={oauthTrace} /> : null}
         </div>
       </div>
     </section>
   );
+}
+
+function OAuthTracePanel({ events }: { events: AppUserOAuthTraceEvent[] }) {
+  return (
+    <div className="mt-4 rounded-lg border border-dashed border-border bg-background p-3">
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Gmail OAuth trace</div>
+      <div className="mt-2 space-y-2">
+        {events.map((event, index) => (
+          <div key={`${event.step}-${index}`} className="rounded-md bg-secondary/60 p-2 font-mono text-[11px] leading-relaxed text-muted-foreground">
+            <div className="font-semibold text-foreground">{index + 1}. {event.step}</div>
+            <pre className="mt-1 whitespace-pre-wrap break-words">{JSON.stringify(stripTraceEvent(event), null, 2)}</pre>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function stripTraceEvent(event: AppUserOAuthTraceEvent) {
+  const { step, at, ...details } = event;
+  return { at, ...details };
 }
 
 function ProfileSection() {
