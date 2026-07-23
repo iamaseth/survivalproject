@@ -32,6 +32,7 @@ import {
   timeAgo,
 } from "@/lib/creator-workflow";
 import { PageHeader } from "@/components/PageHeader";
+import { useCurrentTeamMember } from "@/lib/current-team-member";
 import { ArrowLeft, ExternalLink, Mail, Copy, Send, Truck, ShieldCheck, Clock, AlertCircle, UserCheck, FileText, ListChecks, StickyNote, Compass, Activity as ActivityIcon, Heart, CalendarClock } from "lucide-react";
 
 
