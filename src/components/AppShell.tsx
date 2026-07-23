@@ -52,6 +52,20 @@ export function AppShell() {
     }
   }, [auth]);
 
+  // Background Gmail poller — checks every 3 minutes for new creator replies
+  // once the user is signed in with a role. Silently skipped if Gmail isn't
+  // connected (the server fn returns { polled: false, reason: "not_connected" }).
+  const poll = useServerFn(pollGmailForReplies);
+  useEffect(() => {
+    if (auth.status !== "authenticated" || !auth.profile.role) return;
+    let cancelled = false;
+    const tick = () => { if (!cancelled) void poll().catch(() => {}); };
+    // Kick off ~10s after mount, then every 3 minutes.
+    const initial = window.setTimeout(tick, 10_000);
+    const interval = window.setInterval(tick, 3 * 60_000);
+    return () => { cancelled = true; window.clearTimeout(initial); window.clearInterval(interval); };
+  }, [auth.status, auth.profile?.role, poll]);
+
   if (auth.status === "loading") {
     return (
       <div className="grid min-h-screen place-items-center bg-background">
