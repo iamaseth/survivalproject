@@ -21,6 +21,7 @@ import { useAuth } from "@/lib/current-user";
 import { setCurrentActor } from "@/lib/creator-workspace";
 import { SignInCard } from "@/routes/auth";
 import { pollGmailForReplies } from "@/lib/gmail.functions";
+import { TestModeBanner } from "@/components/TestModeBanner";
 
 const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
@@ -121,6 +122,7 @@ export function AppShell() {
 
       {/* Main */}
       <div className="flex min-w-0 flex-col">
+        <TestModeBanner />
         <header className="sticky top-0 z-10 flex items-center gap-4 border-b border-border bg-background/85 px-8 py-4 backdrop-blur">
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
