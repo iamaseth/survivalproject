@@ -82,7 +82,7 @@ export const Route = createFileRoute("/creators/$id")({
 });
 
 
-type Tab = "overview" | "assignment" | "outreach" | "email" | "gmail" | "shipping" | "content" | "approval" | "activity" | "notes" | "raw";
+type Tab = "overview" | "communications" | "timeline" | "shipping" | "content" | "relationship" | "notes" | "raw";
 
 function CreatorDetail() {
   const { creator: c } = Route.useLoaderData();
