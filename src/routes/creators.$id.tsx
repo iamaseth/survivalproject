@@ -1113,3 +1113,68 @@ function PlatformLink({ label, url }: { label: string; url: string }) {
     </a>
   );
 }
+
+// ---------- Positive-reply nudge ----------
+// Lightweight intent prompt shown after a creator replies but before we've
+// captured a shipping address. Non-mutating — jumps to the right tab so the
+// operator confirms next steps explicitly.
+function PositiveReplyNudge({ c, onJump }: { c: CreatorRow; onJump: (t: Tab) => void }) {
+  const ws = useWorkspace(c);
+  if (!ws.responded) return null;
+  if (ws.publishDate || ws.contentReceived) return null; // already progressed past
+
+  const hasAnyAddress =
+    !!(ws.shippingAddress1 || ws.shippingCity || ws.shippingPostalCode || ws.addressReceived);
+  const suggestion = !hasAnyAddress
+    ? {
+        headline: "Positive reply — request the shipping address next.",
+        detail:
+          "The creator has responded. Draft a short reply asking for the shipping name, address and phone, or open the Shipping tab if you already have it.",
+      }
+    : ws.sampleShipped
+      ? null
+      : {
+          headline: "Address on file — ready to ship the sample.",
+          detail: "Confirm carrier and tracking in the Shipping tab, then send a shipping-notification email from Communications.",
+        };
+  if (!suggestion) return null;
+
+  return (
+    <section className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-2 text-sm text-emerald-900">
+          <Heart className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <div className="font-medium">{suggestion.headline}</div>
+            <div className="text-xs text-emerald-800">{suggestion.detail}</div>
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <button
+            onClick={() => onJump("communications")}
+            className="rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-800"
+          >
+            Draft reply
+          </button>
+          <button
+            onClick={() => onJump("shipping")}
+            className="rounded-md border border-emerald-300 bg-white px-3 py-1.5 text-xs font-medium text-emerald-900 hover:bg-emerald-100"
+          >
+            Open Shipping
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ---------- Relationship panel (consolidated: assignment + Perry approval) ----------
+function RelationshipPanel({ c }: { c: CreatorRow }) {
+  return (
+    <div className="grid gap-6">
+      <AssignmentPanel c={c} />
+      <OutreachPanel c={c} />
+      <PerryApprovalPanel c={c} />
+    </div>
+  );
+}
