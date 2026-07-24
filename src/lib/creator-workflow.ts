@@ -138,7 +138,10 @@ export interface PrimaryAction {
   id: string;
   label: string;
   variant: "primary" | "secondary";
-  run: () => void;
+  run?: () => void;
+  // When set, WorkflowCard treats the action as a jump to another tab on the
+  // creator detail page (no state mutation, no Gmail bypass).
+  jumpTo?: "communications" | "shipping" | "content";
 }
 
 function actor(ws: CreatorWorkspace): "RENA" | "VINA" {
@@ -149,32 +152,15 @@ export function primaryActions(c: CreatorRow, ws: CreatorWorkspace, stage: Stage
   const today = todayISO();
   const a = actor(ws);
 
-  const createDraft: PrimaryAction = {
-    id: "draft",
-    label: "Create Draft",
+  // No state-mutating "Create Draft" / "Send Email" / "Send Follow-up" buttons
+  // here — those must go through the real Gmail flow in the Communications
+  // tab, which is the single source of a confirmed gmailMessageId (the only
+  // thing that flips waitingForReply on).
+  const goToComms: PrimaryAction = {
+    id: "go-comms",
+    label: "Go to Communications",
     variant: "primary",
-    run: () => {
-      updateWorkspace(c.id, { emailDraftCreated: true, outreachStatus: "Draft Ready" });
-      addActivity(c, { at: today, actor: a, kind: "draft_created", action: "Email draft created" });
-    },
-  };
-  const sendEmail: PrimaryAction = {
-    id: "send",
-    label: "Send Email",
-    variant: "primary",
-    run: () => {
-      addActivity(c, { at: today, actor: a, kind: "email_sent", action: "Outreach email sent" });
-      updateWorkspace(c.id, { nextFollowUpDate: addDaysISO(5) });
-    },
-  };
-  const sendFollowup: PrimaryAction = {
-    id: "followup",
-    label: "Send Follow-up",
-    variant: "primary",
-    run: () => {
-      addActivity(c, { at: today, actor: a, kind: "followup_sent", action: "Follow-up email sent" });
-      updateWorkspace(c.id, { nextFollowUpDate: addDaysISO(5) });
-    },
+    jumpTo: "communications",
   };
   const logReply: PrimaryAction = {
     id: "reply",
@@ -242,17 +228,23 @@ export function primaryActions(c: CreatorRow, ws: CreatorWorkspace, stage: Stage
       addActivity(c, { at: today, actor: a, kind: "content_published", action: "Content published" });
     },
   };
+  const goToShipping: PrimaryAction = {
+    id: "go-shipping",
+    label: "Open Shipping tab",
+    variant: "secondary",
+    jumpTo: "shipping",
+  };
 
   switch (stage) {
     case "Research Complete":
     case "Ready for Outreach":
-      return ws.emailDraftCreated ? [sendEmail, createDraft] : [createDraft, sendEmail];
+      return [goToComms];
     case "Waiting for Reply":
-      return [logReply, sendFollowup];
+      return [logReply, goToComms];
     case "Follow-up Due":
-      return [sendFollowup, logReply];
+      return [goToComms, logReply];
     case "Negotiating":
-      return [requestAddress, approveSample];
+      return [requestAddress, goToShipping];
     case "Sample Requested":
       return [shipSample, approveSample];
     case "Sample Shipped":
@@ -266,3 +258,4 @@ export function primaryActions(c: CreatorRow, ws: CreatorWorkspace, stage: Stage
       return [];
   }
 }
+
