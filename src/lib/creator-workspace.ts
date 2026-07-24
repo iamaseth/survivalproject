@@ -242,6 +242,20 @@ export function defaultsFor(c: CreatorRow): CreatorWorkspace {
     researchNotes: c.researchNotes,
     executiveNotes: c.perryComments,
 
+    emailOverride: null,
+
+    savedGmailDraft: null,
+
+    shippingName: null,
+    shippingCompany: null,
+    shippingAddress1: null,
+    shippingAddress2: null,
+    shippingCity: null,
+    shippingState: null,
+    shippingPostalCode: null,
+    shippingCountry: null,
+    carrier: null,
+
     doNotContact: false,
     activity: activity.sort((a, b) => a.at.localeCompare(b.at)),
   };
