@@ -592,3 +592,59 @@ export const purgeTestCreatorArtifacts = createServerFn({ method: "POST" })
     ]);
     return { messagesDeleted: msgCount ?? 0, errorsDeleted: errCount ?? 0 };
   });
+
+// ---------- Save Gmail draft (drafts.create / drafts.update) ----------
+
+export type SaveGmailDraftResult =
+  | { ok: true; draftId: string; updatedAt: string }
+  | { ok: false; status: number; reason: string; needsReconnect: boolean };
+
+export const saveGmailDraft = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: {
+    creatorId: string;
+    to: string;
+    subject: string;
+    body: string;
+    cc?: string;
+    draftId?: string; // if present, updates that draft; otherwise creates.
+  }) => input)
+  .handler(async ({ data, context }): Promise<SaveGmailDraftResult> => {
+    const { getConnectionKeyForUser } = await import("@/server/appUserConnections.server");
+    const connectionAPIKey = await getConnectionKeyForUser(context.userId, CONNECTOR_ID);
+    if (!connectionAPIKey) {
+      return { ok: false, status: 0, reason: "Gmail is not connected.", needsReconnect: true };
+    }
+
+    const raw = buildRawEmail({
+      to: data.to,
+      cc: data.cc,
+      subject: data.subject || "(no subject)",
+      body: data.body,
+    });
+
+    const { callAsAppUser } = await import("@/integrations/lovable/appUserConnector");
+    const path = data.draftId
+      ? `/gmail/v1/users/me/drafts/${data.draftId}`
+      : `/gmail/v1/users/me/drafts`;
+    const method = data.draftId ? "PUT" : "POST";
+
+    const res = await callAsAppUser({
+      gatewayBaseUrl: GATEWAY_BASE_URL, connectionAPIKey, connectorId: CONNECTOR_ID,
+      path,
+      init: {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: { raw } }),
+      },
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      const reason = parseGmailErrorReason(text);
+      return { ok: false, status: res.status, reason, needsReconnect: isReconnectStatus(res.status) };
+    }
+    const j = await res.json() as { id: string };
+    return { ok: true, draftId: j.id, updatedAt: new Date().toISOString() };
+  });
+
