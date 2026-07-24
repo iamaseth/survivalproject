@@ -219,7 +219,7 @@ function SnapshotCard({ icon, label, value, tone, extra }: { icon: React.ReactNo
   );
 }
 
-function WorkflowCard({ c }: { c: CreatorRow }) {
+function WorkflowCard({ c, onJump }: { c: CreatorRow; onJump: (t: Tab) => void }) {
   const ws = useWorkspace(c);
   const stage = computeStage(c, ws);
   const health = relationshipHealth(c, ws);
