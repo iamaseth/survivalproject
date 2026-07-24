@@ -884,6 +884,18 @@ function Shipping({ c }: { c: CreatorRow }) {
     { key: "shipped", label: "Sample shipped", done: ws.sampleShipped },
     { key: "delivered", label: "Delivered", done: ws.deliveryStatus === "Delivered" },
   ];
+  const setShip = (patch: Partial<{
+    shippingName: string | null; shippingCompany: string | null;
+    shippingAddress1: string | null; shippingAddress2: string | null;
+    shippingCity: string | null; shippingState: string | null;
+    shippingPostalCode: string | null; shippingCountry: string | null;
+    carrier: string | null;
+  }>) => updateWorkspace(c.id, patch);
+  const addr = [
+    ws.shippingName, ws.shippingCompany, ws.shippingAddress1, ws.shippingAddress2,
+    [ws.shippingCity, ws.shippingState, ws.shippingPostalCode].filter(Boolean).join(", "),
+    ws.shippingCountry,
+  ].filter((x): x is string => !!x && x.trim().length > 0).join("\n");
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <Card title="Shipping workflow">
@@ -903,6 +915,16 @@ function Shipping({ c }: { c: CreatorRow }) {
         </FieldRow>
         <FieldRow label="Sample shipped">
           <Toggle checked={ws.sampleShipped} onChange={(v) => updateWorkspace(c.id, { sampleShipped: v })} />
+        </FieldRow>
+        <FieldRow label="Carrier">
+          <select
+            value={ws.carrier ?? ""}
+            onChange={(e) => setShip({ carrier: e.target.value || null })}
+            className="rounded-md border border-input bg-background px-2 py-1 text-sm"
+          >
+            <option value="">— Select —</option>
+            {["USPS", "UPS", "FedEx", "DHL", "Other"].map((s) => <option key={s}>{s}</option>)}
+          </select>
         </FieldRow>
         <FieldRow label="Tracking number">
           <input
@@ -924,22 +946,80 @@ function Shipping({ c }: { c: CreatorRow }) {
           </select>
         </FieldRow>
         <button
-          onClick={() => addActivity(c, { at: today, actor: (ws.currentOwner ?? "RENA") as any, kind: "sample_shipped", action: "Sample shipped", notes: ws.trackingNumber ? `Tracking ${ws.trackingNumber}` : undefined })}
+          onClick={() => addActivity(c, { at: today, actor: (ws.currentOwner ?? "RENA") as any, kind: "sample_shipped", action: "Sample shipped", notes: ws.trackingNumber ? `Tracking ${ws.trackingNumber} (${ws.carrier ?? "carrier"})` : undefined })}
           className="mt-2 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
         >
           Log "sample shipped"
         </button>
       </Card>
-      <Card title="From master sheet">
-        <KV k="Sample status (raw)" v={c.sampleStatus} />
-        <KV k="Perry approval" v={c.perryApproval} />
-        <KV k="Recommended offer" v={c.recommendedOffer} />
-        <KV k="Partnership tier" v={c.partnershipTier} />
-        <KV k="Rena notes" v={c.renaNotes} />
+
+      <Card title="Shipping address">
+        <FieldRow label="Recipient name">
+          <input value={ws.shippingName ?? ""} onChange={(e) => setShip({ shippingName: e.target.value || null })}
+            placeholder="Full name for the carrier"
+            className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm" />
+        </FieldRow>
+        <FieldRow label="Company">
+          <input value={ws.shippingCompany ?? ""} onChange={(e) => setShip({ shippingCompany: e.target.value || null })}
+            placeholder="(optional)"
+            className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm" />
+        </FieldRow>
+        <FieldRow label="Address line 1">
+          <input value={ws.shippingAddress1 ?? ""} onChange={(e) => setShip({ shippingAddress1: e.target.value || null })}
+            className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm" />
+        </FieldRow>
+        <FieldRow label="Address line 2">
+          <input value={ws.shippingAddress2 ?? ""} onChange={(e) => setShip({ shippingAddress2: e.target.value || null })}
+            className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm" />
+        </FieldRow>
+        <FieldRow label="City">
+          <input value={ws.shippingCity ?? ""} onChange={(e) => setShip({ shippingCity: e.target.value || null })}
+            className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm" />
+        </FieldRow>
+        <FieldRow label="State / region">
+          <input value={ws.shippingState ?? ""} onChange={(e) => setShip({ shippingState: e.target.value || null })}
+            className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm" />
+        </FieldRow>
+        <FieldRow label="Postal code">
+          <input value={ws.shippingPostalCode ?? ""} onChange={(e) => setShip({ shippingPostalCode: e.target.value || null })}
+            className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm" />
+        </FieldRow>
+        <FieldRow label="Country">
+          <input value={ws.shippingCountry ?? ""} onChange={(e) => setShip({ shippingCountry: e.target.value || null })}
+            placeholder="USA"
+            className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm" />
+        </FieldRow>
+        {addr ? (
+          <div className="mt-3 rounded-md border border-border bg-secondary/40 p-3 text-xs">
+            <div className="mb-1 font-medium">Address preview</div>
+            <pre className="whitespace-pre-wrap font-mono text-[11px]">{addr}</pre>
+            <button
+              onClick={() => { navigator.clipboard.writeText(addr); }}
+              className="mt-2 rounded-md border border-input bg-background px-2 py-1 text-[11px] hover:bg-secondary"
+            >
+              Copy address
+            </button>
+          </div>
+        ) : (
+          <div className="mt-3 rounded-md border border-dashed border-border p-3 text-[11px] text-muted-foreground">
+            No shipping address yet. Fill in the fields above once the creator sends it.
+          </div>
+        )}
+      </Card>
+
+      <Card title="From master sheet" full>
+        <div className="grid gap-2 md:grid-cols-2">
+          <KV k="Sample status (raw)" v={c.sampleStatus} />
+          <KV k="Perry approval" v={c.perryApproval} />
+          <KV k="Recommended offer" v={c.recommendedOffer} />
+          <KV k="Partnership tier" v={c.partnershipTier} />
+          <KV k="Rena notes" v={c.renaNotes} />
+        </div>
       </Card>
     </div>
   );
 }
+
 
 function PerryApprovalPanel({ c }: { c: CreatorRow }) {
   return (
