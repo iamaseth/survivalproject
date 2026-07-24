@@ -65,6 +65,14 @@ function nowTime() {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
+export interface SavedGmailDraft {
+  draftId: string;
+  to: string;
+  subject: string;
+  body: string;
+  updatedAt: string;
+}
+
 export interface CreatorWorkspace {
   assignedTo: OutreachOwner;
   assignedDate: string | null;
@@ -77,6 +85,10 @@ export interface CreatorWorkspace {
   dateSent: string | null;
   lastContactDate: string | null;
 
+  // Overrides the creator's saved email address when the operator edits
+  // "To" inline from the compose panel (e.g. no address on the seed record).
+  emailOverride: string | null;
+
   nextFollowUpDate: string | null;
   followUpCount: number;
   waitingForReply: boolean;
@@ -88,11 +100,25 @@ export interface CreatorWorkspace {
   gmailThreadId: string | null;
   gmailConfirmedAt: string | null;
 
+  // Persisted Gmail draft (via drafts.create). Resumable across sessions.
+  savedGmailDraft: SavedGmailDraft | null;
+
   sampleRequired: boolean;
   addressReceived: boolean;
   sampleShipped: boolean;
   trackingNumber: string | null;
   deliveryStatus: DeliveryStatus;
+
+  // Shipping address workflow
+  shippingName: string | null;
+  shippingCompany: string | null;
+  shippingAddress1: string | null;
+  shippingAddress2: string | null;
+  shippingCity: string | null;
+  shippingState: string | null;
+  shippingPostalCode: string | null;
+  shippingCountry: string | null;
+  carrier: string | null;
 
   contentPromised: string | null;
   contentReceived: boolean;
@@ -116,6 +142,12 @@ export interface CreatorWorkspace {
   doNotContact?: boolean;
   activity: Activity[];
 }
+
+// The creator's effective email — inline override takes precedence over seed.
+export function effectiveEmail(c: CreatorRow, ws: CreatorWorkspace): string | null {
+  return (ws.emailOverride && ws.emailOverride.trim()) || c.email || null;
+}
+
 
 export function defaultsFor(c: CreatorRow): CreatorWorkspace {
   const responded = c.responseState.startsWith("Replied");
