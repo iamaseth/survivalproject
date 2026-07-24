@@ -82,7 +82,7 @@ export const Route = createFileRoute("/creators/$id")({
 });
 
 
-type Tab = "overview" | "assignment" | "outreach" | "email" | "gmail" | "shipping" | "content" | "approval" | "activity" | "notes" | "raw";
+type Tab = "overview" | "communications" | "timeline" | "shipping" | "content" | "relationship" | "notes" | "raw";
 
 function CreatorDetail() {
   const { creator: c } = Route.useLoaderData();
@@ -152,8 +152,9 @@ function CreatorDetail() {
         }
       />
 
-      <WorkflowCard c={c} />
+      <WorkflowCard c={c} onJump={setTab} />
 
+      <PositiveReplyNudge c={c} onJump={setTab} />
 
       {/* Snapshot */}
       <section className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-4">
@@ -169,20 +170,17 @@ function CreatorDetail() {
         <SnapshotCard icon={<ShieldCheck className="h-4 w-4" />} label="Perry (advisory)" value={c.perryApproval} tone={perryTone(c.perryApproval)} />
       </section>
 
-      {/* Tabs */}
+      {/* Tabs — consolidated single workspace */}
       <div className="mb-4 flex flex-wrap gap-1 border-b border-border">
         {(
           [
             ["overview", "Overview"],
-            ["assignment", "Assignment"],
-            ["outreach", "Outreach"],
-            ["email", "Draft email"],
-            ["gmail", "Gmail"],
+            ["communications", "Communications"],
+            ["timeline", "Timeline"],
             ["shipping", "Shipping"],
             ["content", "Content"],
-            ["activity", "Activity timeline"],
-            ["notes", "Internal notes"],
-            ["approval", "Perry notes"],
+            ["relationship", "Relationship"],
+            ["notes", "Notes"],
             ["raw", "All sheet fields"],
           ] as [Tab, string][]
         ).map(([k, l]) => (
@@ -199,19 +197,17 @@ function CreatorDetail() {
       </div>
 
       {tab === "overview" && <Overview c={c} />}
-      {tab === "assignment" && <AssignmentPanel c={c} />}
-      {tab === "outreach" && <OutreachPanel c={c} />}
-      {tab === "email" && <EmailDrafter c={c} />}
-      {tab === "gmail" && <GmailPanel c={c} />}
+      {tab === "communications" && <GmailPanel c={c} />}
+      {tab === "timeline" && <ActivityTimeline c={c} />}
       {tab === "shipping" && <Shipping c={c} />}
       {tab === "content" && <ContentPanel c={c} />}
-      {tab === "activity" && <ActivityTimeline c={c} />}
+      {tab === "relationship" && <RelationshipPanel c={c} />}
       {tab === "notes" && <InternalNotes c={c} />}
-      {tab === "approval" && <PerryApprovalPanel c={c} />}
       {tab === "raw" && <RawFields c={c} />}
     </div>
   );
 }
+
 
 function SnapshotCard({ icon, label, value, tone, extra }: { icon: React.ReactNode; label: string; value: string; tone: string; extra?: React.ReactNode }) {
   return (
@@ -223,7 +219,7 @@ function SnapshotCard({ icon, label, value, tone, extra }: { icon: React.ReactNo
   );
 }
 
-function WorkflowCard({ c }: { c: CreatorRow }) {
+function WorkflowCard({ c, onJump }: { c: CreatorRow; onJump: (t: Tab) => void }) {
   const ws = useWorkspace(c);
   const stage = computeStage(c, ws);
   const health = relationshipHealth(c, ws);
@@ -271,7 +267,10 @@ function WorkflowCard({ c }: { c: CreatorRow }) {
               {actions.map((a) => (
                 <button
                   key={a.id}
-                  onClick={a.run}
+                  onClick={() => {
+                    if (a.jumpTo) onJump(a.jumpTo as Tab);
+                    else a.run?.();
+                  }}
                   className={
                     a.variant === "primary"
                       ? "rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
@@ -885,6 +884,18 @@ function Shipping({ c }: { c: CreatorRow }) {
     { key: "shipped", label: "Sample shipped", done: ws.sampleShipped },
     { key: "delivered", label: "Delivered", done: ws.deliveryStatus === "Delivered" },
   ];
+  const setShip = (patch: Partial<{
+    shippingName: string | null; shippingCompany: string | null;
+    shippingAddress1: string | null; shippingAddress2: string | null;
+    shippingCity: string | null; shippingState: string | null;
+    shippingPostalCode: string | null; shippingCountry: string | null;
+    carrier: string | null;
+  }>) => updateWorkspace(c.id, patch);
+  const addr = [
+    ws.shippingName, ws.shippingCompany, ws.shippingAddress1, ws.shippingAddress2,
+    [ws.shippingCity, ws.shippingState, ws.shippingPostalCode].filter(Boolean).join(", "),
+    ws.shippingCountry,
+  ].filter((x): x is string => !!x && x.trim().length > 0).join("\n");
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <Card title="Shipping workflow">
@@ -904,6 +915,16 @@ function Shipping({ c }: { c: CreatorRow }) {
         </FieldRow>
         <FieldRow label="Sample shipped">
           <Toggle checked={ws.sampleShipped} onChange={(v) => updateWorkspace(c.id, { sampleShipped: v })} />
+        </FieldRow>
+        <FieldRow label="Carrier">
+          <select
+            value={ws.carrier ?? ""}
+            onChange={(e) => setShip({ carrier: e.target.value || null })}
+            className="rounded-md border border-input bg-background px-2 py-1 text-sm"
+          >
+            <option value="">— Select —</option>
+            {["USPS", "UPS", "FedEx", "DHL", "Other"].map((s) => <option key={s}>{s}</option>)}
+          </select>
         </FieldRow>
         <FieldRow label="Tracking number">
           <input
@@ -925,22 +946,80 @@ function Shipping({ c }: { c: CreatorRow }) {
           </select>
         </FieldRow>
         <button
-          onClick={() => addActivity(c, { at: today, actor: (ws.currentOwner ?? "RENA") as any, kind: "sample_shipped", action: "Sample shipped", notes: ws.trackingNumber ? `Tracking ${ws.trackingNumber}` : undefined })}
+          onClick={() => addActivity(c, { at: today, actor: (ws.currentOwner ?? "RENA") as any, kind: "sample_shipped", action: "Sample shipped", notes: ws.trackingNumber ? `Tracking ${ws.trackingNumber} (${ws.carrier ?? "carrier"})` : undefined })}
           className="mt-2 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
         >
           Log "sample shipped"
         </button>
       </Card>
-      <Card title="From master sheet">
-        <KV k="Sample status (raw)" v={c.sampleStatus} />
-        <KV k="Perry approval" v={c.perryApproval} />
-        <KV k="Recommended offer" v={c.recommendedOffer} />
-        <KV k="Partnership tier" v={c.partnershipTier} />
-        <KV k="Rena notes" v={c.renaNotes} />
+
+      <Card title="Shipping address">
+        <FieldRow label="Recipient name">
+          <input value={ws.shippingName ?? ""} onChange={(e) => setShip({ shippingName: e.target.value || null })}
+            placeholder="Full name for the carrier"
+            className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm" />
+        </FieldRow>
+        <FieldRow label="Company">
+          <input value={ws.shippingCompany ?? ""} onChange={(e) => setShip({ shippingCompany: e.target.value || null })}
+            placeholder="(optional)"
+            className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm" />
+        </FieldRow>
+        <FieldRow label="Address line 1">
+          <input value={ws.shippingAddress1 ?? ""} onChange={(e) => setShip({ shippingAddress1: e.target.value || null })}
+            className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm" />
+        </FieldRow>
+        <FieldRow label="Address line 2">
+          <input value={ws.shippingAddress2 ?? ""} onChange={(e) => setShip({ shippingAddress2: e.target.value || null })}
+            className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm" />
+        </FieldRow>
+        <FieldRow label="City">
+          <input value={ws.shippingCity ?? ""} onChange={(e) => setShip({ shippingCity: e.target.value || null })}
+            className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm" />
+        </FieldRow>
+        <FieldRow label="State / region">
+          <input value={ws.shippingState ?? ""} onChange={(e) => setShip({ shippingState: e.target.value || null })}
+            className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm" />
+        </FieldRow>
+        <FieldRow label="Postal code">
+          <input value={ws.shippingPostalCode ?? ""} onChange={(e) => setShip({ shippingPostalCode: e.target.value || null })}
+            className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm" />
+        </FieldRow>
+        <FieldRow label="Country">
+          <input value={ws.shippingCountry ?? ""} onChange={(e) => setShip({ shippingCountry: e.target.value || null })}
+            placeholder="USA"
+            className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm" />
+        </FieldRow>
+        {addr ? (
+          <div className="mt-3 rounded-md border border-border bg-secondary/40 p-3 text-xs">
+            <div className="mb-1 font-medium">Address preview</div>
+            <pre className="whitespace-pre-wrap font-mono text-[11px]">{addr}</pre>
+            <button
+              onClick={() => { navigator.clipboard.writeText(addr); }}
+              className="mt-2 rounded-md border border-input bg-background px-2 py-1 text-[11px] hover:bg-secondary"
+            >
+              Copy address
+            </button>
+          </div>
+        ) : (
+          <div className="mt-3 rounded-md border border-dashed border-border p-3 text-[11px] text-muted-foreground">
+            No shipping address yet. Fill in the fields above once the creator sends it.
+          </div>
+        )}
+      </Card>
+
+      <Card title="From master sheet" full>
+        <div className="grid gap-2 md:grid-cols-2">
+          <KV k="Sample status (raw)" v={c.sampleStatus} />
+          <KV k="Perry approval" v={c.perryApproval} />
+          <KV k="Recommended offer" v={c.recommendedOffer} />
+          <KV k="Partnership tier" v={c.partnershipTier} />
+          <KV k="Rena notes" v={c.renaNotes} />
+        </div>
       </Card>
     </div>
   );
 }
+
 
 function PerryApprovalPanel({ c }: { c: CreatorRow }) {
   return (
@@ -1032,5 +1111,70 @@ function PlatformLink({ label, url }: { label: string; url: string }) {
     >
       {label} <ExternalLink className="h-3 w-3" />
     </a>
+  );
+}
+
+// ---------- Positive-reply nudge ----------
+// Lightweight intent prompt shown after a creator replies but before we've
+// captured a shipping address. Non-mutating — jumps to the right tab so the
+// operator confirms next steps explicitly.
+function PositiveReplyNudge({ c, onJump }: { c: CreatorRow; onJump: (t: Tab) => void }) {
+  const ws = useWorkspace(c);
+  if (!ws.responded) return null;
+  if (ws.publishDate || ws.contentReceived) return null; // already progressed past
+
+  const hasAnyAddress =
+    !!(ws.shippingAddress1 || ws.shippingCity || ws.shippingPostalCode || ws.addressReceived);
+  const suggestion = !hasAnyAddress
+    ? {
+        headline: "Positive reply — request the shipping address next.",
+        detail:
+          "The creator has responded. Draft a short reply asking for the shipping name, address and phone, or open the Shipping tab if you already have it.",
+      }
+    : ws.sampleShipped
+      ? null
+      : {
+          headline: "Address on file — ready to ship the sample.",
+          detail: "Confirm carrier and tracking in the Shipping tab, then send a shipping-notification email from Communications.",
+        };
+  if (!suggestion) return null;
+
+  return (
+    <section className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-2 text-sm text-emerald-900">
+          <Heart className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <div className="font-medium">{suggestion.headline}</div>
+            <div className="text-xs text-emerald-800">{suggestion.detail}</div>
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <button
+            onClick={() => onJump("communications")}
+            className="rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-800"
+          >
+            Draft reply
+          </button>
+          <button
+            onClick={() => onJump("shipping")}
+            className="rounded-md border border-emerald-300 bg-white px-3 py-1.5 text-xs font-medium text-emerald-900 hover:bg-emerald-100"
+          >
+            Open Shipping
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ---------- Relationship panel (consolidated: assignment + Perry approval) ----------
+function RelationshipPanel({ c }: { c: CreatorRow }) {
+  return (
+    <div className="grid gap-6">
+      <AssignmentPanel c={c} />
+      <OutreachPanel c={c} />
+      <PerryApprovalPanel c={c} />
+    </div>
   );
 }
