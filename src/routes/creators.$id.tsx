@@ -152,8 +152,9 @@ function CreatorDetail() {
         }
       />
 
-      <WorkflowCard c={c} />
+      <WorkflowCard c={c} onJump={setTab} />
 
+      <PositiveReplyNudge c={c} onJump={setTab} />
 
       {/* Snapshot */}
       <section className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-4">
@@ -169,20 +170,17 @@ function CreatorDetail() {
         <SnapshotCard icon={<ShieldCheck className="h-4 w-4" />} label="Perry (advisory)" value={c.perryApproval} tone={perryTone(c.perryApproval)} />
       </section>
 
-      {/* Tabs */}
+      {/* Tabs — consolidated single workspace */}
       <div className="mb-4 flex flex-wrap gap-1 border-b border-border">
         {(
           [
             ["overview", "Overview"],
-            ["assignment", "Assignment"],
-            ["outreach", "Outreach"],
-            ["email", "Draft email"],
-            ["gmail", "Gmail"],
+            ["communications", "Communications"],
+            ["timeline", "Timeline"],
             ["shipping", "Shipping"],
             ["content", "Content"],
-            ["activity", "Activity timeline"],
-            ["notes", "Internal notes"],
-            ["approval", "Perry notes"],
+            ["relationship", "Relationship"],
+            ["notes", "Notes"],
             ["raw", "All sheet fields"],
           ] as [Tab, string][]
         ).map(([k, l]) => (
@@ -199,19 +197,17 @@ function CreatorDetail() {
       </div>
 
       {tab === "overview" && <Overview c={c} />}
-      {tab === "assignment" && <AssignmentPanel c={c} />}
-      {tab === "outreach" && <OutreachPanel c={c} />}
-      {tab === "email" && <EmailDrafter c={c} />}
-      {tab === "gmail" && <GmailPanel c={c} />}
+      {tab === "communications" && <GmailPanel c={c} />}
+      {tab === "timeline" && <ActivityTimeline c={c} />}
       {tab === "shipping" && <Shipping c={c} />}
       {tab === "content" && <ContentPanel c={c} />}
-      {tab === "activity" && <ActivityTimeline c={c} />}
+      {tab === "relationship" && <RelationshipPanel c={c} />}
       {tab === "notes" && <InternalNotes c={c} />}
-      {tab === "approval" && <PerryApprovalPanel c={c} />}
       {tab === "raw" && <RawFields c={c} />}
     </div>
   );
 }
+
 
 function SnapshotCard({ icon, label, value, tone, extra }: { icon: React.ReactNode; label: string; value: string; tone: string; extra?: React.ReactNode }) {
   return (
