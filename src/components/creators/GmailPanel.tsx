@@ -10,9 +10,15 @@ import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Loader2, Mail, MailCheck, Send, Sparkles, RefreshCw, AlertCircle, MailX, ShieldAlert, Beaker, XCircle } from "lucide-react";
+import { Loader2, Mail, MailCheck, Send, Sparkles, RefreshCw, AlertCircle, MailX, ShieldAlert, Beaker, XCircle, Save, Pencil } from "lucide-react";
 import type { CreatorRow } from "@/lib/creator-partnerships";
-import { useWorkspace, logConfirmedGmailSend, isTestCreatorId } from "@/lib/creator-workspace";
+import {
+  useWorkspace,
+  updateWorkspace,
+  logConfirmedGmailSend,
+  isTestCreatorId,
+  effectiveEmail,
+} from "@/lib/creator-workspace";
 import { computeStage } from "@/lib/creator-workflow";
 import { useAuth } from "@/lib/current-user";
 import { useTestMode } from "@/lib/test-mode";
@@ -23,6 +29,7 @@ import {
   generateEmailDraft,
   listCreatorMessages,
   pollGmailForReplies,
+  saveGmailDraft,
   type DraftMode,
 } from "@/lib/gmail.functions";
 
@@ -44,7 +51,7 @@ type ConnStatus =
   | { kind: "disconnected" }
   | { kind: "connected"; needsReconnect: boolean; email: string | null; lastErrorReason: string | null; lastErrorStatus: number | null };
 
-export function GmailPanel({ c }: { c: CreatorRow }) {
+export function GmailPanel({ c, initialMode }: { c: CreatorRow; initialMode?: DraftMode }) {
   const auth = useAuth();
   const ws = useWorkspace(c);
   const stage = computeStage(c, ws);
@@ -56,18 +63,38 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
   const draft = useServerFn(generateEmailDraft);
   const list = useServerFn(listCreatorMessages);
   const poll = useServerFn(pollGmailForReplies);
+  const saveDraftFn = useServerFn(saveGmailDraft);
 
   const [conn, setConn] = useState<ConnStatus>({ kind: "loading" });
+
+  // Effective saved email (workspace override wins). May be null.
+  const savedEmail = effectiveEmail(c, ws);
+  const [to, setTo] = useState<string>(savedEmail ?? "");
+  const [editingTo, setEditingTo] = useState<boolean>(!savedEmail);
+
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
-  const [mode, setMode] = useState<DraftMode>("Initial Outreach");
+  const [mode, setMode] = useState<DraftMode>(initialMode ?? "Initial Outreach");
   const [drafting, setDrafting] = useState(false);
   const [sending, setSending] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [saveDraftErr, setSaveDraftErr] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [pollErr, setPollErr] = useState<string | null>(null);
+
+  // Restore any persisted Gmail draft on mount / creator change.
+  useEffect(() => {
+    const d = ws.savedGmailDraft;
+    if (d) {
+      setSubject((prev) => prev || d.subject);
+      setBody((prev) => prev || d.body);
+      if (d.to) setTo((prev) => prev || d.to);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [c.id]);
 
   const refresh = useCallback(async () => {
     const [s, r] = await Promise.all([status(), list({ data: { creatorId: c.id } })]);
@@ -92,8 +119,16 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
   // ---- Rule 8: block sending from a REAL creator record while Test Mode is ON.
   const blockedByTestMode = testMode.enabled && !isTestCreator;
   // ---- Rule 4: when Test Mode is on, redirect the recipient to the test inbox.
-  const actualRecipient = testMode.enabled ? TEST_RECIPIENT_EMAIL : c.email;
+  const actualRecipient = testMode.enabled ? TEST_RECIPIENT_EMAIL : (to.trim() || null);
   const senderEmail = conn.kind === "connected" ? conn.email : null;
+
+  const saveInlineEmail = () => {
+    const v = to.trim();
+    // Persist inline edits to workspace overlay so every other view of this
+    // creator sees the same address (no detour through a separate edit page).
+    updateWorkspace(c.id, { emailOverride: v || null });
+    setEditingTo(false);
+  };
 
   const onGenerate = async () => {
     setErr(null); setDrafting(true);
@@ -114,14 +149,55 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
     } finally { setDrafting(false); }
   };
 
+  const onSaveDraft = async () => {
+    setSaveDraftErr(null);
+    if (!to.trim() || !body.trim()) {
+      const m = "Add a recipient and body before saving a draft.";
+      setSaveDraftErr(m); toast.error(m); return;
+    }
+    setSavingDraft(true);
+    try {
+      const r = await saveDraftFn({
+        data: {
+          creatorId: c.id,
+          to: to.trim(),
+          subject: subject.trim(),
+          body: body.trim(),
+          draftId: ws.savedGmailDraft?.draftId,
+        },
+      });
+      if (!r.ok) {
+        const m = r.needsReconnect
+          ? `Gmail rejected the draft (${r.status}). Reconnect Gmail to fix. ${r.reason}`
+          : `Save draft failed (${r.status}): ${r.reason}`;
+        setSaveDraftErr(m); toast.error("Save draft failed", { description: m });
+        return;
+      }
+      updateWorkspace(c.id, {
+        emailDraftCreated: true,
+        savedGmailDraft: {
+          draftId: r.draftId,
+          to: to.trim(),
+          subject: subject.trim(),
+          body: body.trim(),
+          updatedAt: r.updatedAt,
+        },
+      });
+      toast.success("Draft saved to Gmail", {
+        description: `Resumable from any device · ${new Date(r.updatedAt).toLocaleTimeString()}`,
+      });
+    } catch (e) {
+      const m = e instanceof Error ? e.message : String(e);
+      setSaveDraftErr(m); toast.error("Save draft failed", { description: m });
+    } finally { setSavingDraft(false); }
+  };
+
   const validateBeforeSend = (): string | null => {
     if (blockedByTestMode) {
       return "Test Mode is ON — direct sending from a real creator record is disabled. Use the Test Creator to try Gmail flows safely.";
     }
     if (!actualRecipient) {
-      return isTestCreator
-        ? "This test creator has no email address on file."
-        : "This creator has no email address on file.";
+      return "Add a recipient email in the To field before sending.";
     }
     if (!subject.trim() || !body.trim()) {
       return "Subject and body are required.";
@@ -151,7 +227,7 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
             : c.name,
           subject: subject.trim(),
           body: testMode.enabled
-            ? `[TEST MODE — session ${testMode.sessionId ?? "?"}]\nOriginal intended recipient: ${c.email ?? "(none on file)"}\nActual recipient: ${TEST_RECIPIENT_EMAIL}\n\n${body.trim()}`
+            ? `[TEST MODE — session ${testMode.sessionId ?? "?"}]\nOriginal intended recipient: ${to.trim() || "(none on file)"}\nActual recipient: ${TEST_RECIPIENT_EMAIL}\n\n${body.trim()}`
             : body.trim(),
           stage,
         },
@@ -172,6 +248,10 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
         stageLabel,
         actor: (auth.status === "authenticated" && auth.profile.teamId) ? auth.profile.teamId : undefined,
       });
+      // Successful send — clear any persisted draft (it's no longer a draft).
+      if (ws.savedGmailDraft) {
+        updateWorkspace(c.id, { savedGmailDraft: null });
+      }
       toast.success(testMode.enabled ? "Test email sent" : "Email sent", {
         description: `To ${actualRecipient}${testMode.enabled ? " (Test Mode redirect)" : ""} · Gmail id ${res.messageId.slice(0, 8)}…`,
       });
@@ -203,6 +283,7 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
 
   const isConnected = conn.kind === "connected";
   const needsReconnect = conn.kind === "connected" && conn.needsReconnect;
+  const draftMeta = ws.savedGmailDraft;
 
   return (
     <div className="space-y-6">
@@ -216,7 +297,7 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
         <TestModeSendBanner
           blocked={blockedByTestMode}
           isTestCreator={isTestCreator}
-          creatorEmail={c.email}
+          creatorEmail={savedEmail}
         />
       ) : null}
 
@@ -230,18 +311,11 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
                 <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900">Test</span>
               ) : null}
             </h3>
-            {c.email ? (
-              <div className="mt-0.5 text-xs text-muted-foreground">
-                To: {c.email}
-                {testMode.enabled ? (
-                  <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-900">
-                    Test Mode → redirected to {TEST_RECIPIENT_EMAIL}
-                  </span>
-                ) : null}
+            {draftMeta ? (
+              <div className="mt-0.5 text-[11px] text-muted-foreground">
+                Draft resumed from Gmail · updated {new Date(draftMeta.updatedAt).toLocaleString()}
               </div>
-            ) : (
-              <div className="mt-0.5 text-xs text-red-600">No email address on this creator's record.</div>
-            )}
+            ) : null}
           </div>
           {isConnected && !needsReconnect ? (
             <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-700">
@@ -249,6 +323,50 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
             </span>
           ) : null}
         </div>
+
+        {/* Editable "To" field (inline edit; persists to workspace overlay). */}
+        <div className="mb-2 grid grid-cols-[60px_1fr] items-center gap-2">
+          <label className="text-xs text-muted-foreground">To</label>
+          <div className="flex items-center gap-2">
+            <input
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              onBlur={saveInlineEmail}
+              readOnly={!editingTo}
+              placeholder={savedEmail ? "" : "No email on file — add one here"}
+              className={`w-full rounded-md border px-2 py-1.5 font-mono text-xs focus:border-ring focus:ring-2 focus:ring-ring/30 ${
+                editingTo ? "border-input bg-background" : "border-input bg-secondary/40"
+              } ${!to && !editingTo ? "text-red-700 placeholder:text-red-600" : ""}`}
+            />
+            {!editingTo ? (
+              <button
+                type="button"
+                onClick={() => setEditingTo(true)}
+                className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-[11px] hover:bg-secondary"
+              >
+                <Pencil className="h-3 w-3" /> Edit
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={saveInlineEmail}
+                className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[11px] font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                Save
+              </button>
+            )}
+          </div>
+        </div>
+        {testMode.enabled && to ? (
+          <div className="mb-2 grid grid-cols-[60px_1fr] items-center gap-2">
+            <span />
+            <span className="text-[11px]">
+              <span className="rounded bg-amber-100 px-1.5 py-0.5 font-medium text-amber-900">
+                Test Mode → will be sent to {TEST_RECIPIENT_EMAIL}
+              </span>
+            </span>
+          </div>
+        ) : null}
 
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <select
@@ -262,10 +380,23 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
             className="inline-flex items-center gap-1.5 rounded-md bg-[color:var(--gold)]/20 px-3 py-1.5 text-sm font-medium text-[color:var(--forest)] hover:bg-[color:var(--gold)]/30 disabled:opacity-60"
           >
             {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            {body ? "Rewrite with AI" : "Generate draft"}
+            {body ? "Rewrite with AI" : "Generate AI draft"}
+          </button>
+          <button
+            onClick={onSaveDraft}
+            disabled={savingDraft || !isConnected || needsReconnect || !to.trim() || !body.trim()}
+            className="inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-sm hover:bg-secondary disabled:opacity-60"
+          >
+            {savingDraft ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {draftMeta ? "Update Gmail draft" : "Save as Gmail draft"}
           </button>
           <span className="text-[11px] text-muted-foreground">Gemini 2.5 Flash · Signed by {senderFirstName}</span>
         </div>
+        {saveDraftErr ? (
+          <div className="mb-3 flex items-start gap-1.5 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> <span>{saveDraftErr}</span>
+          </div>
+        ) : null}
 
         <input
           value={subject} onChange={(e) => setSubject(e.target.value)}
@@ -355,7 +486,7 @@ export function GmailPanel({ c }: { c: CreatorRow }) {
       {showConfirm ? (
         <ConfirmSendDialog
           testMode={testMode.enabled}
-          originalRecipient={c.email}
+          originalRecipient={to.trim() || null}
           actualRecipient={actualRecipient!}
           subject={subject.trim()}
           senderEmail={senderEmail}
@@ -462,7 +593,7 @@ function ConfirmSendDialog({
           </div>
         ) : null}
         <dl className="space-y-2 text-sm">
-          <Field label="Original creator email" value={originalRecipient ?? "— none on file —"} />
+          <Field label="Composed recipient" value={originalRecipient ?? "— none —"} />
           <Field
             label="Actual recipient"
             value={actualRecipient}
