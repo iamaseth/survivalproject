@@ -10,9 +10,12 @@ import {
   perryTone,
   sampleTone,
   responseTone,
+  amazonStatus,
+  amazonTone,
   SHEET_HEADERS,
   type CreatorRow,
   type OutreachOwner,
+  type AmazonStatus,
 } from "@/lib/creator-partnerships";
 import { useDashboardCounts, getWorkspace, isWaitingForReply, isTestCreatorId } from "@/lib/creator-workspace";
 import { useTestCreators, testCreatorToRow } from "@/lib/test-creators";
