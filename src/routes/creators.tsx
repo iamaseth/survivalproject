@@ -353,6 +353,15 @@ function OwnerBadge({ o }: { o: OutreachOwner }) {
   );
 }
 
+function AmazonBadge({ amazon }: { amazon: string | null }) {
+  const status = amazonStatus(amazon);
+  return (
+    <span className={`inline-flex rounded px-2 py-0.5 text-[11px] font-medium ${amazonTone(status)}`}>
+      {status === "Yes" ? "✅ Yes" : status === "No" ? "❌ No" : "❓ Unknown"}
+    </span>
+  );
+}
+
 function SummaryCard({ label, value, tone }: { label: string; value: number; tone?: "warn" | "alert" | "ready" }) {
   const border =
     tone === "alert" ? "border-red-300 bg-red-50/50" : tone === "warn" ? "border-amber-300 bg-amber-50/50" : tone === "ready" ? "border-emerald-300 bg-emerald-50/50" : "border-border bg-card";
