@@ -287,6 +287,9 @@ function Row({ c }: { c: CreatorRow }) {
         </span>
       </td>
       <td className="px-3 py-3">
+        <AmazonBadge amazon={c.amazon} />
+      </td>
+      <td className="px-3 py-3">
         <OwnerBadge o={c.outreachOwner} />
       </td>
       <td className="px-3 py-3">
