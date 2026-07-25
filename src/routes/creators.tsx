@@ -61,6 +61,7 @@ function CreatorsList() {
   const [q, setQ] = useState("");
   const [queue, setQueue] = useState<QueueKey>("all");
   const [ownerFilter, setOwnerFilter] = useState<"All" | "RENA" | "VINA" | "Unassigned">("All");
+  const [amazonFilter, setAmazonFilter] = useState<"All" | AmazonStatus>("All");
   const [showImport, setShowImport] = useState(false);
   const testCreators = useTestCreators();
 
