@@ -206,6 +206,19 @@ function CreatorsList() {
             <option value="Unassigned">Unassigned</option>
           </select>
         </label>
+        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="uppercase tracking-wider">Amazon</span>
+          <select
+            value={amazonFilter}
+            onChange={(e) => setAmazonFilter(e.target.value as "All" | AmazonStatus)}
+            className="rounded-md border border-input bg-background px-2 py-1.5 text-sm text-foreground"
+          >
+            <option value="All">All</option>
+            <option value="Yes">✅ Yes</option>
+            <option value="No">❌ No</option>
+            <option value="Unknown">❓ Unknown</option>
+          </select>
+        </label>
         <div className="text-xs text-muted-foreground">
           Showing {filtered.length} of {CREATORS.length}
         </div>
