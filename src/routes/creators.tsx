@@ -247,7 +247,7 @@ function CreatorsList() {
             ))}
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-3 py-10 text-center text-sm text-muted-foreground">
+                <td colSpan={10} className="px-3 py-10 text-center text-sm text-muted-foreground">
                   No creators match this queue.
                 </td>
               </tr>
