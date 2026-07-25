@@ -17,6 +17,8 @@ export type SampleStatus =
 
 export type PerryApproval = "Not Reviewed" | "Approved" | "Changes Requested" | "Declined";
 
+export type AmazonStatus = "Yes" | "No" | "Unknown";
+
 export type ResponseState =
   | "No Response"
   | "Waiting Reply"
@@ -308,5 +310,19 @@ export function responseTone(r: ResponseState): string {
   if (r === "Replied — Declined") return "bg-red-100 text-red-800";
   if (r === "Waiting Reply") return "bg-amber-100 text-amber-800";
   if (r === "Bounced") return "bg-red-100 text-red-800";
+  return "bg-muted text-muted-foreground";
+}
+
+export function amazonStatus(v: string | null): AmazonStatus {
+  if (!v) return "Unknown";
+  const s = v.toLowerCase();
+  if (s.includes("yes")) return "Yes";
+  if (s.includes("no")) return "No";
+  return "Unknown";
+}
+
+export function amazonTone(status: AmazonStatus): string {
+  if (status === "Yes") return "bg-emerald-100 text-emerald-800 border border-emerald-200";
+  if (status === "No") return "bg-red-100 text-red-800 border border-red-200";
   return "bg-muted text-muted-foreground";
 }

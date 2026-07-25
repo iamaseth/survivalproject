@@ -10,9 +10,12 @@ import {
   perryTone,
   sampleTone,
   responseTone,
+  amazonStatus,
+  amazonTone,
   SHEET_HEADERS,
   type CreatorRow,
   type OutreachOwner,
+  type AmazonStatus,
 } from "@/lib/creator-partnerships";
 import { useDashboardCounts, getWorkspace, isWaitingForReply, isTestCreatorId } from "@/lib/creator-workspace";
 import { useTestCreators, testCreatorToRow } from "@/lib/test-creators";
@@ -58,6 +61,7 @@ function CreatorsList() {
   const [q, setQ] = useState("");
   const [queue, setQueue] = useState<QueueKey>("all");
   const [ownerFilter, setOwnerFilter] = useState<"All" | "RENA" | "VINA" | "Unassigned">("All");
+  const [amazonFilter, setAmazonFilter] = useState<"All" | AmazonStatus>("All");
   const [showImport, setShowImport] = useState(false);
   const testCreators = useTestCreators();
 
@@ -81,15 +85,18 @@ function CreatorsList() {
       if (ownerFilter === "RENA" && c.outreachOwner !== "RENA") return false;
       if (ownerFilter === "VINA" && c.outreachOwner !== "VINA") return false;
       if (ownerFilter === "Unassigned" && c.outreachOwner !== null) return false;
+      const amazon = amazonStatus(c.amazon);
+      if (amazonFilter !== "All" && amazon !== amazonFilter) return false;
       if (!needle) return true;
       return (
         c.name.toLowerCase().includes(needle) ||
         (c.segment ?? "").toLowerCase().includes(needle) ||
         (c.email ?? "").toLowerCase().includes(needle) ||
-        c.id.toLowerCase().includes(needle)
+        c.id.toLowerCase().includes(needle) ||
+        amazon.toLowerCase().includes(needle)
       );
     });
-  }, [allCreators, q, queue, ownerFilter]);
+  }, [allCreators, q, queue, ownerFilter, amazonFilter]);
 
   const counts = useMemo(() => ({
     total: allCreators.length,
@@ -199,6 +206,19 @@ function CreatorsList() {
             <option value="Unassigned">Unassigned</option>
           </select>
         </label>
+        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="uppercase tracking-wider">Amazon</span>
+          <select
+            value={amazonFilter}
+            onChange={(e) => setAmazonFilter(e.target.value as "All" | AmazonStatus)}
+            className="rounded-md border border-input bg-background px-2 py-1.5 text-sm text-foreground"
+          >
+            <option value="All">All</option>
+            <option value="Yes">✅ Yes</option>
+            <option value="No">❌ No</option>
+            <option value="Unknown">❓ Unknown</option>
+          </select>
+        </label>
         <div className="text-xs text-muted-foreground">
           Showing {filtered.length} of {CREATORS.length}
         </div>
@@ -211,6 +231,7 @@ function CreatorsList() {
             <tr>
               <th className="px-3 py-3 font-medium">Creator</th>
               <th className="px-3 py-3 font-medium">Priority</th>
+              <th className="px-3 py-3 font-medium">Amazon</th>
               <th className="px-3 py-3 font-medium">Owner</th>
               <th className="px-3 py-3 font-medium">Perry</th>
               <th className="px-3 py-3 font-medium">Contact</th>
@@ -226,7 +247,7 @@ function CreatorsList() {
             ))}
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-3 py-10 text-center text-sm text-muted-foreground">
+                <td colSpan={10} className="px-3 py-10 text-center text-sm text-muted-foreground">
                   No creators match this queue.
                 </td>
               </tr>
@@ -264,6 +285,9 @@ function Row({ c }: { c: CreatorRow }) {
         <span className={`inline-flex rounded px-2 py-0.5 text-[11px] ${priorityTone(c.priority)}`}>
           {c.priority ?? "—"}
         </span>
+      </td>
+      <td className="px-3 py-3">
+        <AmazonBadge amazon={c.amazon} />
       </td>
       <td className="px-3 py-3">
         <OwnerBadge o={c.outreachOwner} />
@@ -325,6 +349,15 @@ function OwnerBadge({ o }: { o: OutreachOwner }) {
   return (
     <span className={`inline-flex rounded px-2 py-0.5 text-[11px] font-medium ${ownerTone(o)}`}>
       {o ?? "Unassigned"}
+    </span>
+  );
+}
+
+function AmazonBadge({ amazon }: { amazon: string | null }) {
+  const status = amazonStatus(amazon);
+  return (
+    <span className={`inline-flex rounded px-2 py-0.5 text-[11px] font-medium ${amazonTone(status)}`}>
+      {status === "Yes" ? "✅ Yes" : status === "No" ? "❌ No" : "❓ Unknown"}
     </span>
   );
 }
