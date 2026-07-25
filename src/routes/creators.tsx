@@ -231,6 +231,7 @@ function CreatorsList() {
             <tr>
               <th className="px-3 py-3 font-medium">Creator</th>
               <th className="px-3 py-3 font-medium">Priority</th>
+              <th className="px-3 py-3 font-medium">Amazon</th>
               <th className="px-3 py-3 font-medium">Owner</th>
               <th className="px-3 py-3 font-medium">Perry</th>
               <th className="px-3 py-3 font-medium">Contact</th>
