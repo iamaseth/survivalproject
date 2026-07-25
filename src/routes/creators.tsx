@@ -85,15 +85,18 @@ function CreatorsList() {
       if (ownerFilter === "RENA" && c.outreachOwner !== "RENA") return false;
       if (ownerFilter === "VINA" && c.outreachOwner !== "VINA") return false;
       if (ownerFilter === "Unassigned" && c.outreachOwner !== null) return false;
+      const amazon = amazonStatus(c.amazon);
+      if (amazonFilter !== "All" && amazon !== amazonFilter) return false;
       if (!needle) return true;
       return (
         c.name.toLowerCase().includes(needle) ||
         (c.segment ?? "").toLowerCase().includes(needle) ||
         (c.email ?? "").toLowerCase().includes(needle) ||
-        c.id.toLowerCase().includes(needle)
+        c.id.toLowerCase().includes(needle) ||
+        amazon.toLowerCase().includes(needle)
       );
     });
-  }, [allCreators, q, queue, ownerFilter]);
+  }, [allCreators, q, queue, ownerFilter, amazonFilter]);
 
   const counts = useMemo(() => ({
     total: allCreators.length,
