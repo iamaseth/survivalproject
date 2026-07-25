@@ -17,6 +17,8 @@ export type SampleStatus =
 
 export type PerryApproval = "Not Reviewed" | "Approved" | "Changes Requested" | "Declined";
 
+export type AmazonStatus = "Yes" | "No" | "Unknown";
+
 export type ResponseState =
   | "No Response"
   | "Waiting Reply"
