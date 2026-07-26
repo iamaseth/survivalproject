@@ -19,6 +19,7 @@ import {
 } from "@/lib/creator-partnerships";
 import { useDashboardCounts, getWorkspace, isWaitingForReply, isTestCreatorId } from "@/lib/creator-workspace";
 import { useTestCreators, testCreatorToRow } from "@/lib/test-creators";
+import { useCurrentTeamMember } from "@/lib/current-team-member";
 import { PageHeader } from "@/components/PageHeader";
 import { PersonalizedDashboard } from "@/components/creators/PersonalizedDashboard";
 import { ExternalLink, Search, Download, AlertCircle, Clock, Mail, Truck, ShieldCheck, Users, CalendarClock, Package, Handshake, Beaker } from "lucide-react";
@@ -58,9 +59,15 @@ const QUEUES: { key: QueueKey; label: string; icon: React.ComponentType<{ classN
 
 function CreatorsList() {
   const ops = useDashboardCounts();
+  const member = useCurrentTeamMember();
   const [q, setQ] = useState("");
   const [queue, setQueue] = useState<QueueKey>("all");
-  const [ownerFilter, setOwnerFilter] = useState<"All" | "RENA" | "VINA" | "Unassigned">("All");
+  // Default the owner filter to the signed-in user when they are Rena or
+  // Vina, so their landing shows only their own creators. A one-click
+  // "All" option in the dropdown switches to the full list.
+  const [ownerFilter, setOwnerFilter] = useState<"All" | "RENA" | "VINA" | "Unassigned">(
+    member.id === "RENA" || member.id === "VINA" ? member.id : "All",
+  );
   const [amazonFilter, setAmazonFilter] = useState<"All" | AmazonStatus>("All");
   const [showImport, setShowImport] = useState(false);
   const testCreators = useTestCreators();
