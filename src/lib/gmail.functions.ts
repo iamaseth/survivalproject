@@ -570,6 +570,7 @@ export const listRecentMessages = createServerFn({ method: "GET" })
     const { data: rows } = await supabaseAdmin
       .from("gmail_messages")
       .select("id, gmail_message_id, creator_id, direction, from_email, from_name, subject, snippet, sent_at, user_id")
+      .eq("user_id", context.userId)
       .order("sent_at", { ascending: false })
       .limit(50);
     return { messages: rows ?? [], viewerId: context.userId };
