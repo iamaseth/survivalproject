@@ -210,7 +210,14 @@ function CreatorsList() {
           <span className="uppercase tracking-wider">Owner</span>
           <select
             value={ownerFilter}
-            onChange={(e) => setOwnerFilter(e.target.value as "All" | "RENA" | "VINA" | "Unassigned")}
+            onChange={(e) => {
+              const v = e.target.value as "All" | "RENA" | "VINA" | "Unassigned";
+              setOwnerFilter(v);
+              // If the current queue disagrees with the new owner, reset queue.
+              if (v === "RENA" && queue === "vina") setQueue("all");
+              else if (v === "VINA" && queue === "rena") setQueue("all");
+              else if (v === "Unassigned" && (queue === "rena" || queue === "vina")) setQueue("all");
+            }}
             className="rounded-md border border-input bg-background px-2 py-1.5 text-sm text-foreground"
           >
             <option value="All">All</option>
