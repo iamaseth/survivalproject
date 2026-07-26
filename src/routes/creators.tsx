@@ -177,7 +177,13 @@ function CreatorsList() {
           return (
             <button
               key={q0.key}
-              onClick={() => setQueue(q0.key)}
+              onClick={() => {
+                setQueue(q0.key);
+                // Keep owner dropdown consistent with owner-specific queues
+                // so queue+owner can never form an impossible combination.
+                if (q0.key === "rena" && ownerFilter !== "RENA") setOwnerFilter("All");
+                else if (q0.key === "vina" && ownerFilter !== "VINA") setOwnerFilter("All");
+              }}
               className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium ${
                 active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"
               }`}
@@ -204,7 +210,14 @@ function CreatorsList() {
           <span className="uppercase tracking-wider">Owner</span>
           <select
             value={ownerFilter}
-            onChange={(e) => setOwnerFilter(e.target.value as "All" | "RENA" | "VINA" | "Unassigned")}
+            onChange={(e) => {
+              const v = e.target.value as "All" | "RENA" | "VINA" | "Unassigned";
+              setOwnerFilter(v);
+              // If the current queue disagrees with the new owner, reset queue.
+              if (v === "RENA" && queue === "vina") setQueue("all");
+              else if (v === "VINA" && queue === "rena") setQueue("all");
+              else if (v === "Unassigned" && (queue === "rena" || queue === "vina")) setQueue("all");
+            }}
             className="rounded-md border border-input bg-background px-2 py-1.5 text-sm text-foreground"
           >
             <option value="All">All</option>
