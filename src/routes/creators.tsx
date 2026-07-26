@@ -19,6 +19,7 @@ import {
 } from "@/lib/creator-partnerships";
 import { useDashboardCounts, getWorkspace, isWaitingForReply, isTestCreatorId } from "@/lib/creator-workspace";
 import { useTestCreators, testCreatorToRow } from "@/lib/test-creators";
+import { useCurrentTeamMember } from "@/lib/current-team-member";
 import { PageHeader } from "@/components/PageHeader";
 import { PersonalizedDashboard } from "@/components/creators/PersonalizedDashboard";
 import { ExternalLink, Search, Download, AlertCircle, Clock, Mail, Truck, ShieldCheck, Users, CalendarClock, Package, Handshake, Beaker } from "lucide-react";
