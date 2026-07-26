@@ -177,7 +177,13 @@ function CreatorsList() {
           return (
             <button
               key={q0.key}
-              onClick={() => setQueue(q0.key)}
+              onClick={() => {
+                setQueue(q0.key);
+                // Keep owner dropdown consistent with owner-specific queues
+                // so queue+owner can never form an impossible combination.
+                if (q0.key === "rena" && ownerFilter !== "RENA") setOwnerFilter("All");
+                else if (q0.key === "vina" && ownerFilter !== "VINA") setOwnerFilter("All");
+              }}
               className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium ${
                 active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"
               }`}
