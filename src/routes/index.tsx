@@ -1,8 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { assets, decisions, tasks, users, userById, STATUS_ORDER, priorityTone } from "@/lib/mock-data";
 import { guides } from "@/lib/knowledge-data";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusPill } from "@/components/StatusPill";
+import { useCurrentTeamMember } from "@/lib/current-team-member";
 import { ArrowRight, CheckCircle2, Clock, BookOpen } from "lucide-react";
 
 
@@ -11,6 +13,15 @@ export const Route = createFileRoute("/")({
 });
 
 function Dashboard() {
+  // Rena and Vina land directly on their pre-filtered Creators list; no
+  // summary widget to interpret first. Perry and Seth keep the overview.
+  const member = useCurrentTeamMember();
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (member.id === "RENA" || member.id === "VINA") {
+      navigate({ to: "/creators", replace: true });
+    }
+  }, [member.id, navigate]);
   const statusCounts = STATUS_ORDER.map((s) => ({ s, n: assets.filter((a) => a.status === s).length })).filter(
     (r) => r.n > 0,
   );
