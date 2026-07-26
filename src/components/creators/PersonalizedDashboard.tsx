@@ -265,9 +265,17 @@ export function PersonalizedDashboard() {
       {/* Role-specific hero row */}
       <RoleHero member={member} metrics={metrics} />
 
+      {/* Queue widget kept for Seth (Research queue) only.
+          Perry: removed — he uses the full Creators list directly.
+          Rena / Vina: removed — the Creators list opens pre-filtered to
+          "Owner = me" from the sidebar / landing redirect, so a preview
+          widget just adds a scroll-past step. */}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        {/* My Creator Queue */}
-        <MyQueue member={member} queue={myQueue} />
+        {member.id === "SETH" ? (
+          <MyQueue member={member} queue={myQueue} />
+        ) : (
+          <div />
+        )}
 
         <div className="space-y-4">
           <NotificationsPanel items={notifications} />
