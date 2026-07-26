@@ -478,7 +478,18 @@ export const pollGmailForReplies = createServerFn({ method: "POST" })
       if (c.email) emailToCreator.set(c.email.toLowerCase(), { id: c.id, name: c.name });
     }
 
+    // Load thread ids we've previously sent from (i.e., outreach we started).
+    const { data: sentThreads } = await supabaseAdmin
+      .from("gmail_messages")
+      .select("gmail_thread_id")
+      .eq("user_id", context.userId)
+      .eq("direction", "sent");
+    const knownThreadIds = new Set(
+      (sentThreads ?? []).map((r) => r.gmail_thread_id).filter(Boolean) as string[],
+    );
+
     let stored = 0;
+    let skipped = 0;
     for (const id of ids) {
       const { data: existing } = await supabaseAdmin
         .from("gmail_messages").select("id").eq("user_id", context.userId).eq("gmail_message_id", id).maybeSingle();
@@ -494,6 +505,15 @@ export const pollGmailForReplies = createServerFn({ method: "POST" })
       const subject = headerValue(msg.payload?.headers, "Subject");
       const toRaw = headerValue(msg.payload?.headers, "To");
       const creator = emailToCreator.get(from.email.toLowerCase()) ?? null;
+      const isKnownThread = msg.threadId ? knownThreadIds.has(msg.threadId) : false;
+
+      // Privacy filter: only store if it's a reply to an outreach thread we
+      // started, OR the sender matches a known creator. Never store arbitrary
+      // inbox mail with creator_id: null.
+      if (!creator && !isKnownThread) {
+        skipped += 1;
+        continue;
+      }
 
       await supabaseAdmin.from("gmail_messages").upsert({
         user_id: context.userId,
