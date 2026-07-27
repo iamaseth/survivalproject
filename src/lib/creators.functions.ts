@@ -2,7 +2,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-type Json = unknown;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Json = any;
 export type CreatorDBRow = { id: string; name: string; [k: string]: Json };
 
 export const listCreators = createServerFn({ method: "GET" })
