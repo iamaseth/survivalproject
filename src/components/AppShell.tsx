@@ -60,6 +60,7 @@ export function AppShell() {
   useEffect(() => {
     if (auth.status === "authenticated" && auth.profile.role) {
       void hydrateWorkspaceFromDB();
+      void hydrateCreatorsFromDB();
     }
   }, [auth.status, auth.profile?.role]);
 
