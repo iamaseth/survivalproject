@@ -137,6 +137,12 @@ function CreatorsList() {
         actions={
           <div className="flex flex-wrap gap-2">
             <button
+              onClick={() => setShowResearch(true)}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              <Sparkles className="h-3.5 w-3.5" /> Research new creator
+            </button>
+            <button
               onClick={() => setShowImport((v) => !v)}
               className="inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-secondary"
             >
@@ -145,6 +151,8 @@ function CreatorsList() {
           </div>
         }
       />
+
+      <ResearchDrawer open={showResearch} onClose={() => setShowResearch(false)} />
 
       {/* Personalized team workspace (v4) */}
       <PersonalizedDashboard />
