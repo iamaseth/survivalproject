@@ -52,6 +52,7 @@ function SettingsPage() {
   return (
     <div className="space-y-6">
       <PageHeader eyebrow="Settings" title="Your workspace" description="Personal integrations, admin tools, and preferences." />
+      <WorkspaceMigrationConflictsBanner />
       <GmailSection />
       <ProfileSection />
       <ImportProspectsSection />
