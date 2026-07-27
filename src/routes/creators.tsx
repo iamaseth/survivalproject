@@ -124,6 +124,8 @@ function CreatorsList() {
     ).length,
     ready: allCreators.filter(isReadyForOutreach).length,
   }), [allCreators, ops.waiting]);
+  const roi = useMemo(() => rollupRoi(), [allCreators]);
+
 
 
   return (
