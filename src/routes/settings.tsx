@@ -54,6 +54,7 @@ function SettingsPage() {
       <GmailSection />
       <ProfileSection />
       <ImportProspectsSection />
+      <ImportCreatorsSection />
       <TestModeSection />
       {isExecutive ? <DataManagementSection /> : <NonAdminDataManagementNote />}
     </div>
