@@ -52,6 +52,7 @@ function SettingsPage() {
       <PageHeader eyebrow="Settings" title="Your workspace" description="Personal integrations, admin tools, and preferences." />
       <GmailSection />
       <ProfileSection />
+      <ImportProspectsSection />
       <TestModeSection />
       {isExecutive ? <DataManagementSection /> : <NonAdminDataManagementNote />}
     </div>
