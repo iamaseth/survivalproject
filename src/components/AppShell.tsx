@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/lib/current-user";
-import { setCurrentActor } from "@/lib/creator-workspace";
+import { setCurrentActor, hydrateWorkspaceFromDB } from "@/lib/creator-workspace";
 import { SignInCard } from "@/routes/auth";
 import { pollGmailForReplies } from "@/lib/gmail.functions";
 import { TestModeBanner } from "@/components/TestModeBanner";
@@ -53,6 +53,14 @@ export function AppShell() {
       setCurrentActor(null);
     }
   }, [auth]);
+
+  // Hydrate team-shared workspace state from Supabase once per session; the
+  // helper also runs the one-time localStorage → DB migration on first boot.
+  useEffect(() => {
+    if (auth.status === "authenticated" && auth.profile.role) {
+      void hydrateWorkspaceFromDB();
+    }
+  }, [auth.status, auth.profile?.role]);
 
   // Background Gmail poller — checks every 3 minutes for new creator replies
   // once the user is signed in with a role. Silently skipped if Gmail isn't

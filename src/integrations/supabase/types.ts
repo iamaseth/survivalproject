@@ -80,6 +80,330 @@ export type Database = {
         }
         Relationships: []
       }
+      creator_workspace: {
+        Row: {
+          activity: Json
+          address_received: boolean
+          ai_recommendation: string | null
+          assigned_date: string | null
+          assigned_to: string | null
+          carrier: string | null
+          contact_method: string | null
+          content_promised: string | null
+          content_received: boolean
+          created_at: string
+          created_by: string | null
+          created_by_role: string | null
+          creator_id: string
+          current_owner: string | null
+          date_sent: string | null
+          delivery_status: string | null
+          do_not_contact: boolean
+          email_draft_created: boolean
+          email_override: string | null
+          email_sent: boolean
+          executive_notes: string | null
+          follow_up_count: number
+          gmail_confirmed_at: string | null
+          gmail_message_id: string | null
+          gmail_thread_id: string | null
+          last_activity_by: string | null
+          last_contact_date: string | null
+          last_modified_at: string | null
+          last_modified_by: string | null
+          last_modified_by_role: string | null
+          next_follow_up_date: string | null
+          no_response: boolean
+          outreach_status: string | null
+          publish_date: string | null
+          published_platforms: Json
+          research_notes: string | null
+          responded: boolean
+          sample_required: boolean
+          sample_shipped: boolean
+          saved_gmail_draft: Json | null
+          shipping_address1: string | null
+          shipping_address2: string | null
+          shipping_city: string | null
+          shipping_company: string | null
+          shipping_country: string | null
+          shipping_name: string | null
+          shipping_postal_code: string | null
+          shipping_state: string | null
+          supervisor: string | null
+          team_notes: string | null
+          tracking_number: string | null
+          updated_at: string
+          waiting_for_reply: boolean
+        }
+        Insert: {
+          activity?: Json
+          address_received?: boolean
+          ai_recommendation?: string | null
+          assigned_date?: string | null
+          assigned_to?: string | null
+          carrier?: string | null
+          contact_method?: string | null
+          content_promised?: string | null
+          content_received?: boolean
+          created_at?: string
+          created_by?: string | null
+          created_by_role?: string | null
+          creator_id: string
+          current_owner?: string | null
+          date_sent?: string | null
+          delivery_status?: string | null
+          do_not_contact?: boolean
+          email_draft_created?: boolean
+          email_override?: string | null
+          email_sent?: boolean
+          executive_notes?: string | null
+          follow_up_count?: number
+          gmail_confirmed_at?: string | null
+          gmail_message_id?: string | null
+          gmail_thread_id?: string | null
+          last_activity_by?: string | null
+          last_contact_date?: string | null
+          last_modified_at?: string | null
+          last_modified_by?: string | null
+          last_modified_by_role?: string | null
+          next_follow_up_date?: string | null
+          no_response?: boolean
+          outreach_status?: string | null
+          publish_date?: string | null
+          published_platforms?: Json
+          research_notes?: string | null
+          responded?: boolean
+          sample_required?: boolean
+          sample_shipped?: boolean
+          saved_gmail_draft?: Json | null
+          shipping_address1?: string | null
+          shipping_address2?: string | null
+          shipping_city?: string | null
+          shipping_company?: string | null
+          shipping_country?: string | null
+          shipping_name?: string | null
+          shipping_postal_code?: string | null
+          shipping_state?: string | null
+          supervisor?: string | null
+          team_notes?: string | null
+          tracking_number?: string | null
+          updated_at?: string
+          waiting_for_reply?: boolean
+        }
+        Update: {
+          activity?: Json
+          address_received?: boolean
+          ai_recommendation?: string | null
+          assigned_date?: string | null
+          assigned_to?: string | null
+          carrier?: string | null
+          contact_method?: string | null
+          content_promised?: string | null
+          content_received?: boolean
+          created_at?: string
+          created_by?: string | null
+          created_by_role?: string | null
+          creator_id?: string
+          current_owner?: string | null
+          date_sent?: string | null
+          delivery_status?: string | null
+          do_not_contact?: boolean
+          email_draft_created?: boolean
+          email_override?: string | null
+          email_sent?: boolean
+          executive_notes?: string | null
+          follow_up_count?: number
+          gmail_confirmed_at?: string | null
+          gmail_message_id?: string | null
+          gmail_thread_id?: string | null
+          last_activity_by?: string | null
+          last_contact_date?: string | null
+          last_modified_at?: string | null
+          last_modified_by?: string | null
+          last_modified_by_role?: string | null
+          next_follow_up_date?: string | null
+          no_response?: boolean
+          outreach_status?: string | null
+          publish_date?: string | null
+          published_platforms?: Json
+          research_notes?: string | null
+          responded?: boolean
+          sample_required?: boolean
+          sample_shipped?: boolean
+          saved_gmail_draft?: Json | null
+          shipping_address1?: string | null
+          shipping_address2?: string | null
+          shipping_city?: string | null
+          shipping_company?: string | null
+          shipping_country?: string | null
+          shipping_name?: string | null
+          shipping_postal_code?: string | null
+          shipping_state?: string | null
+          supervisor?: string | null
+          team_notes?: string | null
+          tracking_number?: string | null
+          updated_at?: string
+          waiting_for_reply?: boolean
+        }
+        Relationships: []
+      }
+      creators: {
+        Row: {
+          amazon: string | null
+          amazon_confidence: string | null
+          code: string | null
+          contact_confidence: string | null
+          contact_method: string | null
+          contact_route: string | null
+          contacted_date: string | null
+          created_at: string
+          creator_code: string | null
+          email: string | null
+          facebook: string | null
+          followers_signal: string | null
+          full_verification: string | null
+          geography: string | null
+          geography_confidence: string | null
+          id: string
+          imported_by: string | null
+          instagram: string | null
+          last_researched: string | null
+          monetization: string | null
+          name: string
+          normalized_domain: string | null
+          offer_confidence: string | null
+          offer_reasoning: string | null
+          other_platform: string | null
+          outreach_owner: string | null
+          partnership_tier: string | null
+          perry_comments: string | null
+          primary_platforms: string | null
+          primary_source: string | null
+          priority: string | null
+          reach_signal: string | null
+          recent_activity_check: string | null
+          recommended_offer: string | null
+          rena_notes: string | null
+          research_notes: string | null
+          research_status: string | null
+          response_followup: string | null
+          sample_status: string | null
+          segment: string | null
+          seth_next_action: string | null
+          target_audience: string | null
+          technical_notes: string | null
+          tiktok: string | null
+          tuan_affiliate_status: string | null
+          updated_at: string
+          verification_date: string | null
+          verification_evidence: string | null
+          youtube: string | null
+        }
+        Insert: {
+          amazon?: string | null
+          amazon_confidence?: string | null
+          code?: string | null
+          contact_confidence?: string | null
+          contact_method?: string | null
+          contact_route?: string | null
+          contacted_date?: string | null
+          created_at?: string
+          creator_code?: string | null
+          email?: string | null
+          facebook?: string | null
+          followers_signal?: string | null
+          full_verification?: string | null
+          geography?: string | null
+          geography_confidence?: string | null
+          id: string
+          imported_by?: string | null
+          instagram?: string | null
+          last_researched?: string | null
+          monetization?: string | null
+          name: string
+          normalized_domain?: string | null
+          offer_confidence?: string | null
+          offer_reasoning?: string | null
+          other_platform?: string | null
+          outreach_owner?: string | null
+          partnership_tier?: string | null
+          perry_comments?: string | null
+          primary_platforms?: string | null
+          primary_source?: string | null
+          priority?: string | null
+          reach_signal?: string | null
+          recent_activity_check?: string | null
+          recommended_offer?: string | null
+          rena_notes?: string | null
+          research_notes?: string | null
+          research_status?: string | null
+          response_followup?: string | null
+          sample_status?: string | null
+          segment?: string | null
+          seth_next_action?: string | null
+          target_audience?: string | null
+          technical_notes?: string | null
+          tiktok?: string | null
+          tuan_affiliate_status?: string | null
+          updated_at?: string
+          verification_date?: string | null
+          verification_evidence?: string | null
+          youtube?: string | null
+        }
+        Update: {
+          amazon?: string | null
+          amazon_confidence?: string | null
+          code?: string | null
+          contact_confidence?: string | null
+          contact_method?: string | null
+          contact_route?: string | null
+          contacted_date?: string | null
+          created_at?: string
+          creator_code?: string | null
+          email?: string | null
+          facebook?: string | null
+          followers_signal?: string | null
+          full_verification?: string | null
+          geography?: string | null
+          geography_confidence?: string | null
+          id?: string
+          imported_by?: string | null
+          instagram?: string | null
+          last_researched?: string | null
+          monetization?: string | null
+          name?: string
+          normalized_domain?: string | null
+          offer_confidence?: string | null
+          offer_reasoning?: string | null
+          other_platform?: string | null
+          outreach_owner?: string | null
+          partnership_tier?: string | null
+          perry_comments?: string | null
+          primary_platforms?: string | null
+          primary_source?: string | null
+          priority?: string | null
+          reach_signal?: string | null
+          recent_activity_check?: string | null
+          recommended_offer?: string | null
+          rena_notes?: string | null
+          research_notes?: string | null
+          research_status?: string | null
+          response_followup?: string | null
+          sample_status?: string | null
+          segment?: string | null
+          seth_next_action?: string | null
+          target_audience?: string | null
+          technical_notes?: string | null
+          tiktok?: string | null
+          tuan_affiliate_status?: string | null
+          updated_at?: string
+          verification_date?: string | null
+          verification_evidence?: string | null
+          youtube?: string | null
+        }
+        Relationships: []
+      }
       gmail_messages: {
         Row: {
           body_text: string | null
