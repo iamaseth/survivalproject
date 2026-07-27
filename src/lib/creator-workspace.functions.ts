@@ -5,12 +5,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-// The DB row shape mirrors CreatorWorkspace with snake_case columns.
-// We keep this file client-safe (no server-only static imports at module scope).
-
-export type WorkspacePatchDTO = Record<string, unknown> & {
-  creator_id: string;
-};
+export type WorkspacePatchDTO = { creator_id: string; [k: string]: unknown };
+type Json = unknown;
 
 export const listWorkspaces = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -20,7 +16,7 @@ export const listWorkspaces = createServerFn({ method: "GET" })
       .select("*")
       .order("updated_at", { ascending: false });
     if (error) throw new Error(error.message);
-    return { rows: (data ?? []) as Array<Record<string, unknown>> };
+    return { rows: (data ?? []) as Array<Record<string, Json>> };
   });
 
 export const upsertWorkspace = createServerFn({ method: "POST" })
@@ -30,25 +26,24 @@ export const upsertWorkspace = createServerFn({ method: "POST" })
     return data;
   })
   .handler(async ({ data, context }) => {
-    const row = { ...data.patch };
+    const row = { ...data.patch } as never;
     const { data: out, error } = await context.supabase
       .from("creator_workspace")
       .upsert(row, { onConflict: "creator_id" })
       .select("*")
       .maybeSingle();
     if (error) throw new Error(error.message);
-    return { row: out };
+    return { row: (out ?? null) as Record<string, Json> | null };
   });
 
 export const appendActivityFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { creator_id: string; activity: Record<string, unknown> }) => {
+  .inputValidator((data: { creator_id: string; activity: Record<string, Json> }) => {
     if (!data?.creator_id) throw new Error("creator_id required");
     if (!data?.activity) throw new Error("activity required");
     return data;
   })
   .handler(async ({ data, context }) => {
-    // Read current activity array, append, write back — small array, one round trip is fine.
     const { data: existing, error: exErr } = await context.supabase
       .from("creator_workspace")
       .select("activity")
@@ -56,23 +51,22 @@ export const appendActivityFn = createServerFn({ method: "POST" })
       .maybeSingle();
     if (exErr) throw new Error(exErr.message);
     const current = Array.isArray(existing?.activity) ? (existing!.activity as unknown[]) : [];
-    const nextActivity = [...current, data.activity];
+    const nextActivity = [...current, data.activity] as unknown as Json;
+    const payload = { creator_id: data.creator_id, activity: nextActivity } as never;
     const { error: upErr } = await context.supabase
       .from("creator_workspace")
-      .upsert(
-        { creator_id: data.creator_id, activity: nextActivity },
-        { onConflict: "creator_id" },
-      );
+      .upsert(payload, { onConflict: "creator_id" });
     if (upErr) throw new Error(upErr.message);
     return { ok: true };
   });
 
 // One-time migration: uploads a localStorage-derived overrides map into the
-// DB, but only fills fields that are currently NULL / default in DB so we
-// never silently overwrite another teammate's later edits.
+// DB. Only fills fields currently empty in DB — never overwrites teammates'
+// later edits. Conflicts (both sides populated and different) are returned
+// for manual review, not silently resolved.
 export const migrateLocalWorkspace = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { overrides: Record<string, Record<string, unknown>> }) => {
+  .inputValidator((data: { overrides: Record<string, Record<string, Json>> }) => {
     if (!data?.overrides || typeof data.overrides !== "object") {
       throw new Error("overrides required");
     }
@@ -80,7 +74,7 @@ export const migrateLocalWorkspace = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     const ids = Object.keys(data.overrides);
-    if (ids.length === 0) return { merged: 0, conflicted: [], skipped: 0 };
+    if (ids.length === 0) return { merged: 0, conflicted: [] as Array<{ creatorId: string; field: string; local: Json; db: Json }>, skipped: 0 };
 
     const { data: existingRows, error: exErr } = await context.supabase
       .from("creator_workspace")
@@ -88,14 +82,14 @@ export const migrateLocalWorkspace = createServerFn({ method: "POST" })
       .in("creator_id", ids);
     if (exErr) throw new Error(exErr.message);
 
-    const existingMap = new Map<string, Record<string, unknown>>();
-    for (const r of existingRows ?? []) existingMap.set((r as Record<string, unknown>).creator_id as string, r as Record<string, unknown>);
+    const existingMap = new Map<string, Record<string, Json>>();
+    for (const r of (existingRows ?? []) as Array<Record<string, Json>>) {
+      existingMap.set(r.creator_id as string, r);
+    }
 
-    const conflicts: Array<{ creatorId: string; field: string; local: unknown; db: unknown }> = [];
-    const toUpsert: Array<Record<string, unknown>> = [];
+    const conflicts: Array<{ creatorId: string; field: string; local: Json; db: Json }> = [];
+    const toUpsert: Array<Record<string, Json>> = [];
 
-    // Simple "fill only if empty" merge: DB wins on any populated field.
-    // Fields we consider "empty": null, undefined, "", false, 0, [] (for jsonb arrays).
     const isEmpty = (v: unknown): boolean => {
       if (v === null || v === undefined) return true;
       if (typeof v === "string" && v === "") return true;
@@ -106,30 +100,29 @@ export const migrateLocalWorkspace = createServerFn({ method: "POST" })
     for (const id of ids) {
       const local = data.overrides[id];
       const db = existingMap.get(id);
-      const merged: Record<string, unknown> = { creator_id: id, ...(db ?? {}) };
-      let changed = false;
+      const merged: Record<string, Json> = { creator_id: id, ...(db ?? {}) };
+      let changed = !db;
       for (const [k, v] of Object.entries(local)) {
-        if (k === "creator_id") continue;
+        if (k === "creator_id" || k === "activity") continue;
         const dbVal = db?.[k];
         if (isEmpty(dbVal) && !isEmpty(v)) {
-          merged[k] = v;
+          merged[k] = v as Json;
           changed = true;
         } else if (!isEmpty(dbVal) && !isEmpty(v) && JSON.stringify(dbVal) !== JSON.stringify(v)) {
-          conflicts.push({ creatorId: id, field: k, local: v, db: dbVal });
+          conflicts.push({ creatorId: id, field: k, local: v as Json, db: dbVal as Json });
         }
       }
-      // Merge activity as union (dedup by id).
-      if (Array.isArray(local.activity) && local.activity.length > 0) {
-        const existingActivity = Array.isArray(db?.activity) ? (db!.activity as Array<Record<string, unknown>>) : [];
-        const byId = new Map<string, Record<string, unknown>>();
+      if (Array.isArray(local.activity) && (local.activity as unknown[]).length > 0) {
+        const existingActivity = Array.isArray(db?.activity) ? (db!.activity as Array<Record<string, Json>>) : [];
+        const byId = new Map<string, Record<string, Json>>();
         for (const a of existingActivity) byId.set(String(a.id ?? Math.random()), a);
-        for (const a of local.activity as Array<Record<string, unknown>>) {
+        for (const a of local.activity as Array<Record<string, Json>>) {
           const key = String(a.id ?? Math.random());
           if (!byId.has(key)) byId.set(key, a);
         }
         const mergedActivity = [...byId.values()].sort((a, b) => String(a.at ?? "").localeCompare(String(b.at ?? "")));
         if (JSON.stringify(mergedActivity) !== JSON.stringify(existingActivity)) {
-          merged.activity = mergedActivity;
+          merged.activity = mergedActivity as unknown as Json;
           changed = true;
         }
       }
@@ -139,7 +132,7 @@ export const migrateLocalWorkspace = createServerFn({ method: "POST" })
     if (toUpsert.length > 0) {
       const { error: upErr } = await context.supabase
         .from("creator_workspace")
-        .upsert(toUpsert, { onConflict: "creator_id" });
+        .upsert(toUpsert as never, { onConflict: "creator_id" });
       if (upErr) throw new Error(upErr.message);
     }
 

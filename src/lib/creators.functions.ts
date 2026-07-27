@@ -2,10 +2,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-export type CreatorDBRow = Record<string, unknown> & {
-  id: string;
-  name: string;
-};
+type Json = unknown;
+export type CreatorDBRow = { id: string; name: string; [k: string]: Json };
 
 export const listCreators = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -15,11 +13,11 @@ export const listCreators = createServerFn({ method: "GET" })
       .select("*")
       .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
-    return { rows: (data ?? []) as CreatorDBRow[] };
+    return { rows: (data ?? []) as Array<Record<string, Json>> };
   });
 
-// Insert-only seed from the static SEED_CREATORS list. Called once from
-// client bootstrap; idempotent thanks to onConflict/ignoreDuplicates on id.
+// Idempotent one-time seed from the client's SEED_CREATORS array. Only inserts
+// when the table is empty — so it can safely be called on every app boot.
 export const seedCreatorsFromStatic = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { rows: CreatorDBRow[] }) => {
@@ -31,18 +29,15 @@ export const seedCreatorsFromStatic = createServerFn({ method: "POST" })
     const { count: beforeCount } = await context.supabase
       .from("creators")
       .select("id", { count: "exact", head: true });
-    // Only seed when the table is empty — protects against accidental re-imports
-    // overwriting fields that have already been edited via the UI.
     if ((beforeCount ?? 0) > 0) return { inserted: 0, existing: beforeCount ?? 0 };
 
     const { error } = await context.supabase
       .from("creators")
-      .upsert(data.rows, { onConflict: "id", ignoreDuplicates: true });
+      .upsert(data.rows as never, { onConflict: "id", ignoreDuplicates: true });
     if (error) throw new Error(error.message);
     return { inserted: data.rows.length, existing: 0 };
   });
 
-// Insert-only import from CSV/TSV paste; dedup key = code (if present) else normalized website domain.
 export type CreatorImportRow = {
   code: string | null;
   normalized_domain: string | null;
@@ -67,27 +62,30 @@ export const importCreators = createServerFn({ method: "POST" })
     return data;
   })
   .handler(async ({ data, context }) => {
-    const incoming = data.rows.filter((r) => (r.code && r.code.trim()) || (r.normalized_domain && r.normalized_domain.trim()));
+    const incoming = data.rows.filter(
+      (r) => (r.code && r.code.trim()) || (r.normalized_domain && r.normalized_domain.trim()),
+    );
     if (incoming.length === 0) return { inserted: 0, skipped: 0, total: 0 };
 
     const codes = incoming.map((r) => (r.code ?? "").trim().toLowerCase()).filter(Boolean);
     const domains = incoming.map((r) => (r.normalized_domain ?? "").trim()).filter(Boolean);
 
-    // Load existing rows that could collide.
-    const [{ data: existingByCode }, { data: existingByDomain }] = await Promise.all([
+    const [codeRes, domainRes] = await Promise.all([
       codes.length > 0
-        ? context.supabase.from("creators").select("id, code, normalized_domain").in("code", codes)
-        : Promise.resolve({ data: [] as Array<{ id: string; code: string | null; normalized_domain: string | null }> } as never),
+        ? context.supabase.from("creators").select("code, normalized_domain").in("code", codes)
+        : Promise.resolve({ data: [] as Array<{ code: string | null; normalized_domain: string | null }>, error: null }),
       domains.length > 0
-        ? context.supabase.from("creators").select("id, code, normalized_domain").in("normalized_domain", domains)
-        : Promise.resolve({ data: [] as Array<{ id: string; code: string | null; normalized_domain: string | null }> } as never),
+        ? context.supabase.from("creators").select("code, normalized_domain").in("normalized_domain", domains)
+        : Promise.resolve({ data: [] as Array<{ code: string | null; normalized_domain: string | null }>, error: null }),
     ]);
+    if (codeRes.error) throw new Error(codeRes.error.message);
+    if (domainRes.error) throw new Error(domainRes.error.message);
 
-    const existingCodes = new Set(((existingByCode ?? []) as Array<{ code: string | null }>).map((r) => (r.code ?? "").toLowerCase()));
-    const existingDomains = new Set(((existingByDomain ?? []) as Array<{ normalized_domain: string | null }>).map((r) => r.normalized_domain ?? ""));
+    const existingCodes = new Set((codeRes.data ?? []).map((r) => (r.code ?? "").toLowerCase()));
+    const existingDomains = new Set((domainRes.data ?? []).map((r) => r.normalized_domain ?? ""));
 
     let skipped = 0;
-    const toInsert: Array<Record<string, unknown>> = [];
+    const toInsert: Array<Record<string, Json>> = [];
     const seenCodes = new Set<string>();
     const seenDomains = new Set<string>();
 
@@ -100,7 +98,9 @@ export const importCreators = createServerFn({ method: "POST" })
       if (dom && seenDomains.has(dom)) { skipped++; continue; }
       if (codeLower) seenCodes.add(codeLower);
       if (dom) seenDomains.add(dom);
-      const id = codeLower ? `IMP-${codeLower.toUpperCase().replace(/[^A-Z0-9]/g, "")}` : `IMP-${dom.replace(/[^a-z0-9]/g, "").toUpperCase()}`;
+      const id = codeLower
+        ? `IMP-${codeLower.toUpperCase().replace(/[^A-Z0-9]/g, "")}`
+        : `IMP-${dom.replace(/[^a-z0-9]/g, "").toUpperCase()}`;
       toInsert.push({
         id,
         code: r.code,
@@ -124,21 +124,9 @@ export const importCreators = createServerFn({ method: "POST" })
     if (toInsert.length > 0) {
       const { error } = await context.supabase
         .from("creators")
-        .upsert(toInsert, { onConflict: "id", ignoreDuplicates: true });
+        .upsert(toInsert as never, { onConflict: "id", ignoreDuplicates: true });
       if (error) throw new Error(error.message);
     }
 
     return { inserted: toInsert.length, skipped, total: incoming.length };
-  });
-
-// AI research helper — insert-if-new. Returns the resolved id.
-export const upsertCreatorFromResearch = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((data: { row: CreatorImportRow }) => {
-    if (!data?.row) throw new Error("row required");
-    return data;
-  })
-  .handler(async ({ data, context }) => {
-    const res = await importCreators({ data: { rows: [data.row] } } as never);
-    return res;
   });
