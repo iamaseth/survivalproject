@@ -168,6 +168,8 @@ function CreatorsList() {
           <OpsCard icon={<CalendarClock className="h-3.5 w-3.5" />} label="Follow-up due today" value={ops.followUpDueToday} tone="alert" />
           <OpsCard icon={<Package className="h-3.5 w-3.5" />} label="Sample pending" value={ops.samplePending} />
           <OpsCard icon={<Handshake className="h-3.5 w-3.5" />} label="Active partnerships" value={ops.activePartnerships} tone="ready" />
+          <OpsCard icon={<DollarSign className="h-3.5 w-3.5" />} label="Total spend" value={Math.round(roi.totalSpend)} />
+          <OpsCard icon={<TrendingUp className="h-3.5 w-3.5" />} label="Avg ROI %" value={roi.avgRoi === null ? 0 : Math.round(roi.avgRoi * 100)} tone={roi.avgRoi && roi.avgRoi >= 1 ? "ready" : undefined} />
         </div>
       </section>
 
