@@ -23,7 +23,9 @@ import { useTestCreators, testCreatorToRow } from "@/lib/test-creators";
 import { useCurrentTeamMember } from "@/lib/current-team-member";
 import { PageHeader } from "@/components/PageHeader";
 import { PersonalizedDashboard } from "@/components/creators/PersonalizedDashboard";
-import { ExternalLink, Search, Download, AlertCircle, Clock, Mail, Truck, ShieldCheck, Users, CalendarClock, Package, Handshake, Beaker } from "lucide-react";
+import { ExternalLink, Search, Download, AlertCircle, Clock, Mail, Truck, ShieldCheck, Users, CalendarClock, Package, Handshake, Beaker, Sparkles, DollarSign, TrendingUp } from "lucide-react";
+import { ResearchDrawer } from "@/components/creators/ResearchDrawer";
+import { rollupRoi } from "@/lib/creator-workspace";
 
 export const Route = createFileRoute("/creators")({
   component: CreatorsLayout,
@@ -71,6 +73,7 @@ function CreatorsList() {
   );
   const [amazonFilter, setAmazonFilter] = useState<"All" | AmazonStatus>("All");
   const [showImport, setShowImport] = useState(false);
+  const [showResearch, setShowResearch] = useState(false);
   const testCreators = useTestCreators();
 
   // Merge synthetic TEST creators (localStorage) with the imported spreadsheet
@@ -121,6 +124,8 @@ function CreatorsList() {
     ).length,
     ready: allCreators.filter(isReadyForOutreach).length,
   }), [allCreators, ops.waiting]);
+  const roi = useMemo(() => rollupRoi(), [allCreators]);
+
 
 
   return (
@@ -132,6 +137,12 @@ function CreatorsList() {
         actions={
           <div className="flex flex-wrap gap-2">
             <button
+              onClick={() => setShowResearch(true)}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              <Sparkles className="h-3.5 w-3.5" /> Research new creator
+            </button>
+            <button
               onClick={() => setShowImport((v) => !v)}
               className="inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-secondary"
             >
@@ -140,6 +151,8 @@ function CreatorsList() {
           </div>
         }
       />
+
+      <ResearchDrawer open={showResearch} onClose={() => setShowResearch(false)} />
 
       {/* Personalized team workspace (v4) */}
       <PersonalizedDashboard />
@@ -155,6 +168,8 @@ function CreatorsList() {
           <OpsCard icon={<CalendarClock className="h-3.5 w-3.5" />} label="Follow-up due today" value={ops.followUpDueToday} tone="alert" />
           <OpsCard icon={<Package className="h-3.5 w-3.5" />} label="Sample pending" value={ops.samplePending} />
           <OpsCard icon={<Handshake className="h-3.5 w-3.5" />} label="Active partnerships" value={ops.activePartnerships} tone="ready" />
+          <OpsCard icon={<DollarSign className="h-3.5 w-3.5" />} label="Total spend" value={Math.round(roi.totalSpend)} />
+          <OpsCard icon={<TrendingUp className="h-3.5 w-3.5" />} label="Avg ROI %" value={roi.avgRoi === null ? 0 : Math.round(roi.avgRoi * 100)} tone={roi.avgRoi && roi.avgRoi >= 1 ? "ready" : undefined} />
         </div>
       </section>
 

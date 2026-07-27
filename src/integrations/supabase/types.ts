@@ -88,21 +88,29 @@ export type Database = {
           assigned_date: string | null
           assigned_to: string | null
           carrier: string | null
+          commission_rate: number | null
+          commission_sales_usd: number | null
+          contact_attempts: Json
           contact_method: string | null
+          content_deadline: string | null
+          content_pieces: Json
           content_promised: string | null
           content_received: boolean
+          content_status: string | null
           created_at: string
           created_by: string | null
           created_by_role: string | null
           creator_id: string
           current_owner: string | null
           date_sent: string | null
+          deal_type: string
           delivery_status: string | null
           do_not_contact: boolean
           email_draft_created: boolean
           email_override: string | null
           email_sent: boolean
           executive_notes: string | null
+          flat_fee_usd: number | null
           follow_up_count: number
           gmail_confirmed_at: string | null
           gmail_message_id: string | null
@@ -115,10 +123,15 @@ export type Database = {
           next_follow_up_date: string | null
           no_response: boolean
           outreach_status: string | null
+          payout_notes: string | null
           publish_date: string | null
           published_platforms: Json
           research_notes: string | null
           responded: boolean
+          revenue_attributed_usd: number | null
+          roi_ratio: number | null
+          roi_updated_at: string | null
+          sample_cost_usd: number | null
           sample_required: boolean
           sample_shipped: boolean
           saved_gmail_draft: Json | null
@@ -126,12 +139,14 @@ export type Database = {
           shipping_address2: string | null
           shipping_city: string | null
           shipping_company: string | null
+          shipping_cost_usd: number | null
           shipping_country: string | null
           shipping_name: string | null
           shipping_postal_code: string | null
           shipping_state: string | null
           supervisor: string | null
           team_notes: string | null
+          total_cost_usd: number | null
           tracking_number: string | null
           updated_at: string
           waiting_for_reply: boolean
@@ -143,21 +158,29 @@ export type Database = {
           assigned_date?: string | null
           assigned_to?: string | null
           carrier?: string | null
+          commission_rate?: number | null
+          commission_sales_usd?: number | null
+          contact_attempts?: Json
           contact_method?: string | null
+          content_deadline?: string | null
+          content_pieces?: Json
           content_promised?: string | null
           content_received?: boolean
+          content_status?: string | null
           created_at?: string
           created_by?: string | null
           created_by_role?: string | null
           creator_id: string
           current_owner?: string | null
           date_sent?: string | null
+          deal_type?: string
           delivery_status?: string | null
           do_not_contact?: boolean
           email_draft_created?: boolean
           email_override?: string | null
           email_sent?: boolean
           executive_notes?: string | null
+          flat_fee_usd?: number | null
           follow_up_count?: number
           gmail_confirmed_at?: string | null
           gmail_message_id?: string | null
@@ -170,10 +193,15 @@ export type Database = {
           next_follow_up_date?: string | null
           no_response?: boolean
           outreach_status?: string | null
+          payout_notes?: string | null
           publish_date?: string | null
           published_platforms?: Json
           research_notes?: string | null
           responded?: boolean
+          revenue_attributed_usd?: number | null
+          roi_ratio?: number | null
+          roi_updated_at?: string | null
+          sample_cost_usd?: number | null
           sample_required?: boolean
           sample_shipped?: boolean
           saved_gmail_draft?: Json | null
@@ -181,12 +209,14 @@ export type Database = {
           shipping_address2?: string | null
           shipping_city?: string | null
           shipping_company?: string | null
+          shipping_cost_usd?: number | null
           shipping_country?: string | null
           shipping_name?: string | null
           shipping_postal_code?: string | null
           shipping_state?: string | null
           supervisor?: string | null
           team_notes?: string | null
+          total_cost_usd?: number | null
           tracking_number?: string | null
           updated_at?: string
           waiting_for_reply?: boolean
@@ -198,21 +228,29 @@ export type Database = {
           assigned_date?: string | null
           assigned_to?: string | null
           carrier?: string | null
+          commission_rate?: number | null
+          commission_sales_usd?: number | null
+          contact_attempts?: Json
           contact_method?: string | null
+          content_deadline?: string | null
+          content_pieces?: Json
           content_promised?: string | null
           content_received?: boolean
+          content_status?: string | null
           created_at?: string
           created_by?: string | null
           created_by_role?: string | null
           creator_id?: string
           current_owner?: string | null
           date_sent?: string | null
+          deal_type?: string
           delivery_status?: string | null
           do_not_contact?: boolean
           email_draft_created?: boolean
           email_override?: string | null
           email_sent?: boolean
           executive_notes?: string | null
+          flat_fee_usd?: number | null
           follow_up_count?: number
           gmail_confirmed_at?: string | null
           gmail_message_id?: string | null
@@ -225,10 +263,15 @@ export type Database = {
           next_follow_up_date?: string | null
           no_response?: boolean
           outreach_status?: string | null
+          payout_notes?: string | null
           publish_date?: string | null
           published_platforms?: Json
           research_notes?: string | null
           responded?: boolean
+          revenue_attributed_usd?: number | null
+          roi_ratio?: number | null
+          roi_updated_at?: string | null
+          sample_cost_usd?: number | null
           sample_required?: boolean
           sample_shipped?: boolean
           saved_gmail_draft?: Json | null
@@ -236,12 +279,14 @@ export type Database = {
           shipping_address2?: string | null
           shipping_city?: string | null
           shipping_company?: string | null
+          shipping_cost_usd?: number | null
           shipping_country?: string | null
           shipping_name?: string | null
           shipping_postal_code?: string | null
           shipping_state?: string | null
           supervisor?: string | null
           team_notes?: string | null
+          total_cost_usd?: number | null
           tracking_number?: string | null
           updated_at?: string
           waiting_for_reply?: boolean
