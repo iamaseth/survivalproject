@@ -23,7 +23,9 @@ import { useTestCreators, testCreatorToRow } from "@/lib/test-creators";
 import { useCurrentTeamMember } from "@/lib/current-team-member";
 import { PageHeader } from "@/components/PageHeader";
 import { PersonalizedDashboard } from "@/components/creators/PersonalizedDashboard";
-import { ExternalLink, Search, Download, AlertCircle, Clock, Mail, Truck, ShieldCheck, Users, CalendarClock, Package, Handshake, Beaker } from "lucide-react";
+import { ExternalLink, Search, Download, AlertCircle, Clock, Mail, Truck, ShieldCheck, Users, CalendarClock, Package, Handshake, Beaker, Sparkles, DollarSign, TrendingUp } from "lucide-react";
+import { ResearchDrawer } from "@/components/creators/ResearchDrawer";
+import { rollupRoi } from "@/lib/creator-workspace";
 
 export const Route = createFileRoute("/creators")({
   component: CreatorsLayout,
@@ -71,6 +73,8 @@ function CreatorsList() {
   );
   const [amazonFilter, setAmazonFilter] = useState<"All" | AmazonStatus>("All");
   const [showImport, setShowImport] = useState(false);
+  const [showResearch, setShowResearch] = useState(false);
+  const roi = useMemo(() => rollupRoi(), [allCreators]);
   const testCreators = useTestCreators();
 
   // Merge synthetic TEST creators (localStorage) with the imported spreadsheet

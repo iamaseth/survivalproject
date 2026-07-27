@@ -14,6 +14,9 @@ import {
   isOverdue,
   type CreatorRow,
 } from "@/lib/creator-partnerships";
+import { ContactLog } from "@/components/creators/ContactLog";
+import { ContentPieces } from "@/components/creators/ContentPieces";
+import { DealROI } from "@/components/creators/DealROI";
 import {
   useWorkspace,
   updateWorkspace,
@@ -82,7 +85,7 @@ export const Route = createFileRoute("/creators/$id")({
 });
 
 
-type Tab = "overview" | "communications" | "timeline" | "shipping" | "content" | "relationship" | "notes" | "raw";
+type Tab = "overview" | "communications" | "timeline" | "shipping" | "content" | "roi" | "relationship" | "notes" | "raw";
 
 function CreatorDetail() {
   const { creator: c } = Route.useLoaderData();
@@ -179,6 +182,7 @@ function CreatorDetail() {
             ["timeline", "Timeline"],
             ["shipping", "Shipping"],
             ["content", "Content"],
+            ["roi", "Deal & ROI"],
             ["relationship", "Relationship"],
             ["notes", "Notes"],
             ["raw", "All sheet fields"],
@@ -197,10 +201,21 @@ function CreatorDetail() {
       </div>
 
       {tab === "overview" && <Overview c={c} />}
-      {tab === "communications" && <GmailPanel c={c} />}
+      {tab === "communications" && (
+        <div className="space-y-4">
+          <GmailPanel c={c} />
+          <ContactLog c={c} />
+        </div>
+      )}
       {tab === "timeline" && <ActivityTimeline c={c} />}
       {tab === "shipping" && <Shipping c={c} />}
-      {tab === "content" && <ContentPanel c={c} />}
+      {tab === "content" && (
+        <div className="space-y-4">
+          <ContentPanel c={c} />
+          <ContentPieces c={c} />
+        </div>
+      )}
+      {tab === "roi" && <DealROI c={c} />}
       {tab === "relationship" && <RelationshipPanel c={c} />}
       {tab === "notes" && <InternalNotes c={c} />}
       {tab === "raw" && <RawFields c={c} />}

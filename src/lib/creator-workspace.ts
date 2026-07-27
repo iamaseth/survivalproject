@@ -141,7 +141,62 @@ export interface CreatorWorkspace {
 
   doNotContact?: boolean;
   activity: Activity[];
+
+  // --- v6: contact log, content pieces, deal & ROI ---
+  contactAttempts: ContactAttempt[];
+  contentPieces: ContentPiece[];
+  contentStatus: ContentStatus | null;
+  contentDeadline: string | null;
+
+  dealType: DealType;
+  sampleCostUsd: number | null;
+  shippingCostUsd: number | null;
+  flatFeeUsd: number | null;
+  commissionRate: number | null;      // 0..1
+  commissionSalesUsd: number | null;
+  payoutNotes: string | null;
+  totalCostUsd: number | null;        // derived on save
+
+  revenueAttributedUsd: number | null;
+  roiRatio: number | null;            // revenue / total_cost
+  roiUpdatedAt: string | null;
 }
+
+export type ContactChannel = "email" | "dm" | "call" | "in_person" | "other";
+export type ContactDirection = "outbound" | "inbound";
+export interface ContactAttempt {
+  id: string;
+  at: string;                          // ISO date
+  channel: ContactChannel;
+  direction: ContactDirection;
+  subject?: string | null;
+  summary: string;
+  actor?: string | null;               // free-text (name)
+  actorRole?: string | null;
+  gmailMessageId?: string | null;
+  gmailThreadId?: string | null;
+}
+
+export type ContentPlatform = "instagram" | "tiktok" | "youtube" | "facebook" | "blog" | "podcast" | "other";
+export type ContentFormat = "post" | "reel" | "story" | "video" | "short" | "live" | "article" | "episode" | "other";
+export type ContentStatus = "not_promised" | "promised" | "in_progress" | "delivered" | "published" | "verified";
+export interface ContentPiece {
+  id: string;
+  platform: ContentPlatform;
+  format: ContentFormat;
+  url: string | null;
+  postedAt: string | null;             // ISO date
+  views: number | null;
+  likes: number | null;
+  comments: number | null;
+  shares: number | null;
+  saves: number | null;
+  estReach: number | null;
+  metricsUpdatedAt: string | null;
+  notes: string | null;
+}
+
+export type DealType = "gifted" | "flat_fee" | "commission" | "hybrid" | "none";
 
 // The creator's effective email — inline override takes precedence over seed.
 export function effectiveEmail(c: CreatorRow, ws: CreatorWorkspace): string | null {
@@ -258,6 +313,22 @@ export function defaultsFor(c: CreatorRow): CreatorWorkspace {
 
     doNotContact: false,
     activity: activity.sort((a, b) => a.at.localeCompare(b.at)),
+
+    contactAttempts: [],
+    contentPieces: [],
+    contentStatus: null,
+    contentDeadline: null,
+    dealType: "gifted",
+    sampleCostUsd: null,
+    shippingCostUsd: null,
+    flatFeeUsd: null,
+    commissionRate: null,
+    commissionSalesUsd: null,
+    payoutNotes: null,
+    totalCostUsd: null,
+    revenueAttributedUsd: null,
+    roiRatio: null,
+    roiUpdatedAt: null,
   };
 }
 
@@ -366,6 +437,21 @@ const CAMEL_TO_SNAKE: Record<string, string> = {
   lastActivityBy: "last_activity_by",
   supervisor: "supervisor",
   doNotContact: "do_not_contact",
+  contactAttempts: "contact_attempts",
+  contentPieces: "content_pieces",
+  contentStatus: "content_status",
+  contentDeadline: "content_deadline",
+  dealType: "deal_type",
+  sampleCostUsd: "sample_cost_usd",
+  shippingCostUsd: "shipping_cost_usd",
+  flatFeeUsd: "flat_fee_usd",
+  commissionRate: "commission_rate",
+  commissionSalesUsd: "commission_sales_usd",
+  payoutNotes: "payout_notes",
+  totalCostUsd: "total_cost_usd",
+  revenueAttributedUsd: "revenue_attributed_usd",
+  roiRatio: "roi_ratio",
+  roiUpdatedAt: "roi_updated_at",
 };
 const SNAKE_TO_CAMEL: Record<string, string> = Object.fromEntries(
   Object.entries(CAMEL_TO_SNAKE).map(([k, v]) => [v, k]),
@@ -588,7 +674,97 @@ export function logConfirmedGmailSend(
     gmailMessageId: args.messageId,
     gmailThreadId: args.threadId,
   });
+  logContactAttempt(c, {
+    channel: "email",
+    direction: "outbound",
+    subject: args.subject,
+    summary: `Sent Gmail (${args.stageLabel ?? "outreach"})`,
+    at: today,
+    gmailMessageId: args.messageId,
+    gmailThreadId: args.threadId,
+  });
   updateWorkspace(c.id, { nextFollowUpDate: nextFollow });
+}
+
+// ---------- Contact attempts, content, and ROI helpers ----------
+
+function uid(prefix = "id") {
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export function logContactAttempt(c: CreatorRow, ev: Omit<ContactAttempt, "id" | "at"> & { at?: string }) {
+  const ws = getWorkspace(c);
+  const actor = getCurrentActor();
+  const next: ContactAttempt = {
+    id: uid("ca"),
+    at: ev.at ?? new Date().toISOString(),
+    channel: ev.channel,
+    direction: ev.direction,
+    subject: ev.subject ?? null,
+    summary: ev.summary,
+    actor: ev.actor ?? actor?.name ?? null,
+    actorRole: ev.actorRole ?? actor?.roleLabel ?? null,
+    gmailMessageId: ev.gmailMessageId ?? null,
+    gmailThreadId: ev.gmailThreadId ?? null,
+  };
+  updateWorkspace(c.id, { contactAttempts: [...ws.contactAttempts, next] });
+  return next;
+}
+
+export function removeContactAttempt(c: CreatorRow, id: string) {
+  const ws = getWorkspace(c);
+  updateWorkspace(c.id, { contactAttempts: ws.contactAttempts.filter((x) => x.id !== id) });
+}
+
+export function addContentPiece(c: CreatorRow, piece: Omit<ContentPiece, "id">) {
+  const ws = getWorkspace(c);
+  const next: ContentPiece = { id: uid("cp"), ...piece };
+  updateWorkspace(c.id, { contentPieces: [...ws.contentPieces, next] });
+  recomputeRoi(c);
+  return next;
+}
+
+export function updateContentPiece(c: CreatorRow, id: string, patch: Partial<ContentPiece>) {
+  const ws = getWorkspace(c);
+  updateWorkspace(c.id, {
+    contentPieces: ws.contentPieces.map((x) => (x.id === id ? { ...x, ...patch, metricsUpdatedAt: new Date().toISOString() } : x)),
+  });
+  recomputeRoi(c);
+}
+
+export function removeContentPiece(c: CreatorRow, id: string) {
+  const ws = getWorkspace(c);
+  updateWorkspace(c.id, { contentPieces: ws.contentPieces.filter((x) => x.id !== id) });
+  recomputeRoi(c);
+}
+
+export function computeTotalCost(w: CreatorWorkspace): number {
+  return (w.sampleCostUsd ?? 0) + (w.shippingCostUsd ?? 0) + (w.flatFeeUsd ?? 0)
+    + ((w.commissionRate ?? 0) * (w.commissionSalesUsd ?? 0));
+}
+
+export function recomputeRoi(c: CreatorRow) {
+  const w = getWorkspace(c);
+  const total = computeTotalCost(w);
+  const rev = w.revenueAttributedUsd ?? 0;
+  const ratio = total > 0 ? rev / total : null;
+  updateWorkspace(c.id, {
+    totalCostUsd: total || null,
+    roiRatio: ratio,
+    roiUpdatedAt: new Date().toISOString(),
+  });
+}
+
+export function rollupRoi(): { totalSpend: number; totalRevenue: number; avgRoi: number | null; withDeals: number } {
+  let spend = 0, rev = 0, deals = 0, ratios = 0, ratioCount = 0;
+  for (const id of Object.keys(cache)) {
+    const ov = cache[id];
+    const t = (ov.totalCostUsd ?? 0);
+    const r = (ov.revenueAttributedUsd ?? 0);
+    if (t > 0 || r > 0) { deals += 1; spend += t; rev += r; }
+    if (typeof ov.roiRatio === "number") { ratios += ov.roiRatio; ratioCount += 1; }
+  }
+  return { totalSpend: spend, totalRevenue: rev, avgRoi: ratioCount ? ratios / ratioCount : null, withDeals: deals };
 }
 
 // ---------- Shared Waiting-for-Reply selector (single source of truth) ----------
