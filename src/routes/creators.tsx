@@ -75,10 +75,13 @@ function CreatorsList() {
 
   // Merge synthetic TEST creators (localStorage) with the imported spreadsheet
   // rows so they appear in the same queues, filters, and search results.
+  const creatorsVersion = useCreatorsVersion();
   const allCreators = useMemo(() => {
     const testRows = testCreators.map(testCreatorToRow);
     return [...testRows, ...CREATORS];
-  }, [testCreators]);
+    // creatorsVersion drives re-eval when the DB-hydrated roster grows.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [testCreators, creatorsVersion]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
