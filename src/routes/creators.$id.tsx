@@ -46,7 +46,9 @@ import { useCurrentTeamMember } from "@/lib/current-team-member";
 import { ArrowLeft, ExternalLink, Mail, Copy, Send, Truck, ShieldCheck, Clock, AlertCircle, UserCheck, FileText, ListChecks, StickyNote, Compass, Activity as ActivityIcon, Heart, CalendarClock, Trash2, Beaker } from "lucide-react";
 import { GmailPanel } from "@/components/creators/GmailPanel";
 import { deleteTestCreator, getTestCreatorRow, useTestCreators } from "@/lib/test-creators";
-import { purgeTestCreatorArtifacts } from "@/lib/gmail.functions";
+import { purgeTestCreatorArtifacts, listCreatorMessages } from "@/lib/gmail.functions";
+import { suggestShippingNoteFromThread } from "@/lib/ai-research.functions";
+
 import { useAuth } from "@/lib/current-user";
 
 
