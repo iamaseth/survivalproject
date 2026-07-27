@@ -124,8 +124,10 @@ export type Database = {
           no_response: boolean
           outreach_status: string | null
           payout_notes: string | null
+          product_requested: string | null
           publish_date: string | null
           published_platforms: Json
+          quantity: number | null
           research_notes: string | null
           responded: boolean
           revenue_attributed_usd: number | null
@@ -142,6 +144,7 @@ export type Database = {
           shipping_cost_usd: number | null
           shipping_country: string | null
           shipping_name: string | null
+          shipping_note: string | null
           shipping_postal_code: string | null
           shipping_state: string | null
           supervisor: string | null
@@ -194,8 +197,10 @@ export type Database = {
           no_response?: boolean
           outreach_status?: string | null
           payout_notes?: string | null
+          product_requested?: string | null
           publish_date?: string | null
           published_platforms?: Json
+          quantity?: number | null
           research_notes?: string | null
           responded?: boolean
           revenue_attributed_usd?: number | null
@@ -212,6 +217,7 @@ export type Database = {
           shipping_cost_usd?: number | null
           shipping_country?: string | null
           shipping_name?: string | null
+          shipping_note?: string | null
           shipping_postal_code?: string | null
           shipping_state?: string | null
           supervisor?: string | null
@@ -264,8 +270,10 @@ export type Database = {
           no_response?: boolean
           outreach_status?: string | null
           payout_notes?: string | null
+          product_requested?: string | null
           publish_date?: string | null
           published_platforms?: Json
+          quantity?: number | null
           research_notes?: string | null
           responded?: boolean
           revenue_attributed_usd?: number | null
@@ -282,6 +290,7 @@ export type Database = {
           shipping_cost_usd?: number | null
           shipping_country?: string | null
           shipping_name?: string | null
+          shipping_note?: string | null
           shipping_postal_code?: string | null
           shipping_state?: string | null
           supervisor?: string | null
