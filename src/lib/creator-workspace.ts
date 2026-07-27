@@ -327,6 +327,10 @@ export function defaultsFor(c: CreatorRow): CreatorWorkspace {
     shippingPostalCode: null,
     shippingCountry: null,
     carrier: null,
+    productRequested: null,
+    quantity: null,
+    shippingNote: null,
+
 
     doNotContact: false,
     activity: activity.sort((a, b) => a.at.localeCompare(b.at)),
