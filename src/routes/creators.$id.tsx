@@ -23,10 +23,13 @@ import {
   addActivity,
   clearWorkspaceForIds,
   isTestCreatorId,
+  SURVIVAL_FLAVORS,
   type Activity,
   type OutreachStatus,
   type DeliveryStatus,
+  type SurvivalFlavor,
 } from "@/lib/creator-workspace";
+
 import {
   computeStage,
   nextAction,
