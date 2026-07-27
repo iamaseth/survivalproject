@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { ImportProspectsSection } from "@/components/settings/ImportProspectsSection";
+import { ImportCreatorsSection } from "@/components/settings/ImportCreatorsSection";
 import { useAuth } from "@/lib/current-user";
 import { connectAppUser, type AppUserOAuthTraceEvent } from "@/integrations/lovable/appUserConnectorClient";
 import {
