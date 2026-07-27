@@ -19,6 +19,7 @@ import {
 
 import { useAuth } from "@/lib/current-user";
 import { setCurrentActor, hydrateWorkspaceFromDB } from "@/lib/creator-workspace";
+import { hydrateCreatorsFromDB } from "@/lib/creator-partnerships";
 import { SignInCard } from "@/routes/auth";
 import { pollGmailForReplies } from "@/lib/gmail.functions";
 import { TestModeBanner } from "@/components/TestModeBanner";
@@ -59,6 +60,7 @@ export function AppShell() {
   useEffect(() => {
     if (auth.status === "authenticated" && auth.profile.role) {
       void hydrateWorkspaceFromDB();
+      void hydrateCreatorsFromDB();
     }
   }, [auth.status, auth.profile?.role]);
 

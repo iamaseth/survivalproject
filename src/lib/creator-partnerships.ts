@@ -326,3 +326,132 @@ export function amazonTone(status: AmazonStatus): string {
   if (status === "No") return "bg-red-100 text-red-800 border border-red-200";
   return "bg-muted text-muted-foreground";
 }
+
+// ------------ DB-hydrated roster ------------
+// The exported CREATORS array starts from the static SEED. On app boot,
+// `hydrateCreatorsFromDB()` pulls the team-shared `public.creators` table
+// and appends any rows the local seed doesn't already have (imported and
+// AI-researched creators) so every teammate sees the same roster.
+import { useSyncExternalStore } from "react";
+
+const rosterListeners = new Set<() => void>();
+let rosterVersion = 0;
+function bumpRoster() { rosterVersion++; rosterListeners.forEach((l) => l()); }
+
+export function useCreatorsVersion(): number {
+  return useSyncExternalStore(
+    (fn) => { rosterListeners.add(fn); return () => rosterListeners.delete(fn); },
+    () => rosterVersion,
+    () => 0,
+  );
+}
+
+function rowToCreator(r: Record<string, unknown>): CreatorRow {
+  const owner = ((r.outreach_owner ?? null) as OutreachOwner);
+  const priority = ((r.priority ?? null) as CreatorPriority | null);
+  const contactedDate = (r.contacted_date as string | null) ?? null;
+  const responseFollowup = (r.response_followup as string | null) ?? null;
+  const responseState = normResponse(responseFollowup);
+  const nextFollowUpDate = contactedDate && !responseState.startsWith("Replied")
+    ? addDays(contactedDate, 5) : null;
+  const base = {
+    id: r.id as string,
+    name: (r.name as string) ?? "Unnamed",
+    segment: (r.segment as string | null) ?? null,
+    primaryPlatforms: (r.primary_platforms as string | null) ?? null,
+    primarySource: (r.primary_source as string | null) ?? null,
+    reachSignal: (r.reach_signal as string | null) ?? null,
+    email: (r.email as string | null) ?? null,
+    contactRoute: (r.contact_route as string | null) ?? null,
+    contactConfidence: (r.contact_confidence as string | null) ?? null,
+    researchStatus: (r.research_status as string | null) ?? null,
+    priority,
+    amazon: (r.amazon as string | null) ?? null,
+    researchNotes: (r.research_notes as string | null) ?? null,
+    lastResearched: (r.last_researched as string | null) ?? null,
+    sethNextAction: (r.seth_next_action as string | null) ?? null,
+    outreachOwner: owner,
+    perryComments: (r.perry_comments as string | null) ?? null,
+    amazonConfidence: (r.amazon_confidence as string | null) ?? null,
+    monetization: (r.monetization as string | null) ?? null,
+    verificationEvidence: (r.verification_evidence as string | null) ?? null,
+    contactedDate,
+    contactMethod: (r.contact_method as string | null) ?? null,
+    responseFollowup,
+    sampleStatus: (r.sample_status as string | null) ?? null,
+    renaNotes: (r.rena_notes as string | null) ?? null,
+    tuanAffiliateStatus: (r.tuan_affiliate_status as string | null) ?? null,
+    creatorCode: (r.creator_code as string | null) ?? null,
+    technicalNotes: (r.technical_notes as string | null) ?? null,
+    recentActivityCheck: (r.recent_activity_check as string | null) ?? null,
+    fullVerification: (r.full_verification as string | null) ?? null,
+    verificationDate: (r.verification_date as string | null) ?? null,
+    followersSignal: (r.followers_signal as string | null) ?? null,
+    targetAudience: (r.target_audience as string | null) ?? null,
+    geography: (r.geography as string | null) ?? null,
+    geographyConfidence: (r.geography_confidence as string | null) ?? null,
+    facebook: (r.facebook as string | null) ?? null,
+    instagram: (r.instagram as string | null) ?? null,
+    tiktok: (r.tiktok as string | null) ?? null,
+    youtube: (r.youtube as string | null) ?? null,
+    otherPlatform: (r.other_platform as string | null) ?? null,
+    recommendedOffer: (r.recommended_offer as string | null) ?? null,
+    partnershipTier: (r.partnership_tier as string | null) ?? null,
+    offerConfidence: (r.offer_confidence as string | null) ?? null,
+    offerReasoning: (r.offer_reasoning as string | null) ?? null,
+    supervisor: "RENA" as const,
+    perryApproval: normPerry((r.perry_comments as string | null) ?? null),
+    responseState,
+    normalizedSampleStatus: normSample((r.sample_status as string | null) ?? null),
+    nextFollowUpDate,
+    outreachHistory: buildHistory({
+      id: r.id as string,
+      contactedDate,
+      contactMethod: (r.contact_method as string | null) ?? null,
+      outreachOwner: owner,
+      responseFollowup,
+      sampleStatus: (r.sample_status as string | null) ?? null,
+      renaNotes: (r.rena_notes as string | null) ?? null,
+    }),
+  };
+  return base;
+}
+
+let creatorsHydrated = false;
+export async function hydrateCreatorsFromDB(): Promise<void> {
+  if (creatorsHydrated || typeof window === "undefined") return;
+  creatorsHydrated = true;
+  try {
+    const [{ listCreators, seedCreatorsFromStatic }] = await Promise.all([
+      import("./creators.functions"),
+    ]);
+    // Bootstrap DB with static seed the first time any teammate signs in.
+    const seedPayload = CREATORS.map((c) => ({
+      id: c.id, name: c.name, code: c.creatorCode, segment: c.segment,
+      primary_platforms: c.primaryPlatforms, email: c.email, amazon: c.amazon,
+      priority: c.priority, outreach_owner: c.outreachOwner,
+      research_notes: c.researchNotes, last_researched: c.lastResearched,
+      contacted_date: c.contactedDate, contact_method: c.contactMethod,
+      response_followup: c.responseFollowup, sample_status: c.sampleStatus,
+      rena_notes: c.renaNotes, perry_comments: c.perryComments,
+      recommended_offer: c.recommendedOffer,
+    }));
+    try { await seedCreatorsFromStatic({ data: { rows: seedPayload as never } }); }
+    catch (e) { console.error("[creators] seed failed", e); }
+
+    const { rows } = await listCreators();
+    const existingIds = new Set(CREATORS.map((c) => c.id));
+    let added = 0;
+    for (const r of rows) {
+      const id = (r as Record<string, unknown>).id as string;
+      if (existingIds.has(id)) continue;
+      CREATORS.push(rowToCreator(r as Record<string, unknown>));
+      existingIds.add(id);
+      added++;
+    }
+    if (added > 0) bumpRoster();
+  } catch (e) {
+    console.error("[creators] hydrateCreatorsFromDB failed", e);
+  }
+}
+

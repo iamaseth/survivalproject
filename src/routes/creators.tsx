@@ -16,6 +16,7 @@ import {
   type CreatorRow,
   type OutreachOwner,
   type AmazonStatus,
+  useCreatorsVersion,
 } from "@/lib/creator-partnerships";
 import { useDashboardCounts, getWorkspace, isWaitingForReply, isTestCreatorId } from "@/lib/creator-workspace";
 import { useTestCreators, testCreatorToRow } from "@/lib/test-creators";
@@ -74,10 +75,13 @@ function CreatorsList() {
 
   // Merge synthetic TEST creators (localStorage) with the imported spreadsheet
   // rows so they appear in the same queues, filters, and search results.
+  const creatorsVersion = useCreatorsVersion();
   const allCreators = useMemo(() => {
     const testRows = testCreators.map(testCreatorToRow);
     return [...testRows, ...CREATORS];
-  }, [testCreators]);
+    // creatorsVersion drives re-eval when the DB-hydrated roster grows.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [testCreators, creatorsVersion]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
