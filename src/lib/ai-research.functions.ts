@@ -83,3 +83,69 @@ ${data.input}
       throw error;
     }
   });
+
+// Suggests a shipping note from the creator's Gmail thread.
+// Returns a short plain-text draft; NEVER auto-saves — the UI must show it
+// for Rena/Vina to review and confirm before it lands in shipping_note.
+export const suggestShippingNoteFromThread = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { creatorId: string }) => {
+    if (!data?.creatorId) throw new Error("creatorId required");
+    return data;
+  })
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows, error } = await supabaseAdmin
+      .from("gmail_messages")
+      .select("direction, from_name, from_email, subject, snippet, body_text, sent_at")
+      .eq("creator_id", data.creatorId)
+      .order("sent_at", { ascending: true })
+      .limit(30);
+    if (error) throw error;
+    const messages = rows ?? [];
+    if (messages.length === 0) {
+      return { note: null, reason: "No Gmail messages on file for this creator yet." as string | null };
+    }
+
+    const transcript = messages.map((m) => {
+      const who = m.direction === "outbound" ? "Us" : (m.from_name || m.from_email || "Creator");
+      const body = (m.body_text || m.snippet || "").trim().slice(0, 1500);
+      return `[${m.sent_at ?? ""}] ${who} — Subject: ${m.subject ?? ""}\n${body}`;
+    }).join("\n\n---\n\n").slice(0, 12000);
+
+    const key = process.env.LOVABLE_API_KEY;
+    if (!key) throw new Error("Missing LOVABLE_API_KEY");
+    const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
+    const gateway = createLovableAiGatewayProvider(key);
+    const model = gateway("google/gemini-2.5-flash");
+
+    const prompt = `You are drafting a short internal SHIPPING NOTE for the Survival Tabs
+partnerships team, based on the Gmail thread with a creator below. The note is
+attached to a physical sample shipment so the person packing the box can act on it.
+
+Extract ONLY things the creator actually said in the thread:
+- flavor preferences (Vanilla, Chocolate, Strawberry, Butterscotch, Banana, Blueberry, Cherry)
+- quantity requests
+- allergy / dietary restrictions
+- delivery instructions (PO Box restrictions, carrier preferences, "leave at door", timing windows, gate codes)
+- alternate ship-to name/company/apartment/floor mentioned
+
+Rules:
+- Plain text, 3-6 short bullet lines starting with "- ".
+- No greeting, no signature, no "Hi team".
+- If NOTHING relevant is in the thread, return exactly the single word: NONE
+- Never invent details that are not in the transcript.
+
+Thread:
+"""
+${transcript}
+"""`;
+
+    const result = await generateText({ model, prompt });
+    const text = (result.text ?? "").trim();
+    if (!text || text.toUpperCase() === "NONE") {
+      return { note: null, reason: "No shipping-relevant details found in the conversation." as string | null };
+    }
+    return { note: text.slice(0, 1200), reason: null as string | null };
+  });
+

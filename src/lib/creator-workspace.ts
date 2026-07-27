@@ -73,6 +73,17 @@ export interface SavedGmailDraft {
   updatedAt: string;
 }
 
+export const SURVIVAL_FLAVORS = [
+  "Vanilla",
+  "Chocolate",
+  "Strawberry",
+  "Butterscotch",
+  "Banana",
+  "Blueberry",
+  "Cherry",
+] as const;
+export type SurvivalFlavor = (typeof SURVIVAL_FLAVORS)[number];
+
 export interface CreatorWorkspace {
   assignedTo: OutreachOwner;
   assignedDate: string | null;
@@ -119,6 +130,12 @@ export interface CreatorWorkspace {
   shippingPostalCode: string | null;
   shippingCountry: string | null;
   carrier: string | null;
+
+  // Sample product & note (used by Shipping tab)
+  productRequested: SurvivalFlavor | null;
+  quantity: number | null;
+  shippingNote: string | null;
+
 
   contentPromised: string | null;
   contentReceived: boolean;
@@ -310,6 +327,10 @@ export function defaultsFor(c: CreatorRow): CreatorWorkspace {
     shippingPostalCode: null,
     shippingCountry: null,
     carrier: null,
+    productRequested: null,
+    quantity: null,
+    shippingNote: null,
+
 
     doNotContact: false,
     activity: activity.sort((a, b) => a.at.localeCompare(b.at)),
@@ -420,6 +441,10 @@ const CAMEL_TO_SNAKE: Record<string, string> = {
   shippingPostalCode: "shipping_postal_code",
   shippingCountry: "shipping_country",
   carrier: "carrier",
+  productRequested: "product_requested",
+  quantity: "quantity",
+  shippingNote: "shipping_note",
+
   contentPromised: "content_promised",
   contentReceived: "content_received",
   publishedPlatforms: "published_platforms",

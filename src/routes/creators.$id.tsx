@@ -23,10 +23,13 @@ import {
   addActivity,
   clearWorkspaceForIds,
   isTestCreatorId,
+  SURVIVAL_FLAVORS,
   type Activity,
   type OutreachStatus,
   type DeliveryStatus,
+  type SurvivalFlavor,
 } from "@/lib/creator-workspace";
+
 import {
   computeStage,
   nextAction,
@@ -43,7 +46,9 @@ import { useCurrentTeamMember } from "@/lib/current-team-member";
 import { ArrowLeft, ExternalLink, Mail, Copy, Send, Truck, ShieldCheck, Clock, AlertCircle, UserCheck, FileText, ListChecks, StickyNote, Compass, Activity as ActivityIcon, Heart, CalendarClock, Trash2, Beaker } from "lucide-react";
 import { GmailPanel } from "@/components/creators/GmailPanel";
 import { deleteTestCreator, getTestCreatorRow, useTestCreators } from "@/lib/test-creators";
-import { purgeTestCreatorArtifacts } from "@/lib/gmail.functions";
+import { purgeTestCreatorArtifacts, listCreatorMessages } from "@/lib/gmail.functions";
+import { suggestShippingNoteFromThread } from "@/lib/ai-research.functions";
+
 import { useAuth } from "@/lib/current-user";
 
 
@@ -1022,6 +1027,10 @@ function Shipping({ c }: { c: CreatorRow }) {
         )}
       </Card>
 
+      <div className="md:col-span-2">
+        <SampleAndNotePanel c={c} />
+      </div>
+
       <Card title="From master sheet" full>
         <div className="grid gap-2 md:grid-cols-2">
           <KV k="Sample status (raw)" v={c.sampleStatus} />
@@ -1034,6 +1043,174 @@ function Shipping({ c }: { c: CreatorRow }) {
     </div>
   );
 }
+
+function SampleAndNotePanel({ c }: { c: CreatorRow }) {
+  const ws = useWorkspace(c);
+  const list = useServerFn(listCreatorMessages);
+  const suggest = useServerFn(suggestShippingNoteFromThread);
+  const [messages, setMessages] = useState<Array<{
+    id: string; direction: string; from_name: string | null; from_email: string | null;
+    subject: string | null; snippet: string | null; sent_at: string | null;
+  }> | null>(null);
+  const [loadingThread, setLoadingThread] = useState(false);
+  const [suggestion, setSuggestion] = useState<string | null>(null);
+  const [suggestReason, setSuggestReason] = useState<string | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
+
+  const loadThread = async () => {
+    setLoadingThread(true);
+    try {
+      const res = await list({ data: { creatorId: c.id } });
+      setMessages((res.messages ?? []) as never);
+    } catch (e) {
+      toast.error(`Couldn't load thread: ${(e as Error).message}`);
+    } finally {
+      setLoadingThread(false);
+    }
+  };
+
+  const runSuggest = async () => {
+    setSuggesting(true);
+    setSuggestion(null);
+    setSuggestReason(null);
+    try {
+      const res = await suggest({ data: { creatorId: c.id } });
+      if (res.note) setSuggestion(res.note);
+      else setSuggestReason(res.reason ?? "No suggestion available.");
+    } catch (e) {
+      toast.error(`Suggestion failed: ${(e as Error).message}`);
+    } finally {
+      setSuggesting(false);
+    }
+  };
+
+  const applySuggestion = () => {
+    if (!suggestion) return;
+    updateWorkspace(c.id, { shippingNote: suggestion });
+    setSuggestion(null);
+    toast.success("Shipping note updated. Review and save any further edits.");
+  };
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-semibold">Sample details & shipping note</h3>
+        <span className="text-[11px] text-muted-foreground">
+          Suggestions are drafts — nothing saves until you confirm.
+        </span>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Left: fields */}
+        <div className="space-y-3">
+          <FieldRow label="Product requested">
+            <select
+              value={ws.productRequested ?? ""}
+              onChange={(e) => updateWorkspace(c.id, { productRequested: (e.target.value || null) as SurvivalFlavor | null })}
+              className="w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
+            >
+              <option value="">— Select flavor —</option>
+              {SURVIVAL_FLAVORS.map((f) => <option key={f} value={f}>{f}</option>)}
+            </select>
+          </FieldRow>
+          <FieldRow label="Quantity">
+            <input
+              type="number" min={0} step={1}
+              value={ws.quantity ?? ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                updateWorkspace(c.id, { quantity: v === "" ? null : Math.max(0, Number(v)) });
+              }}
+              placeholder="e.g. 2"
+              className="w-24 rounded-md border border-input bg-background px-2 py-1 text-sm"
+            />
+          </FieldRow>
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <label className="text-xs text-muted-foreground">Shipping note (goes to the packer)</label>
+              <button
+                onClick={runSuggest}
+                disabled={suggesting}
+                className="rounded-md border border-input bg-background px-2 py-1 text-[11px] hover:bg-secondary disabled:opacity-60"
+              >
+                {suggesting ? "Reading thread…" : "Suggest note from conversation"}
+              </button>
+            </div>
+            <textarea
+              value={ws.shippingNote ?? ""}
+              onChange={(e) => updateWorkspace(c.id, { shippingNote: e.target.value || null })}
+              rows={6}
+              placeholder={"e.g.\n- Prefers Chocolate + Vanilla\n- Nut allergy — flag on packing slip\n- Ring bell twice, no doorman"}
+              className="w-full rounded-md border border-input bg-background p-2 text-sm"
+            />
+            {suggestion ? (
+              <div className="mt-2 rounded-md border border-primary/40 bg-primary/5 p-2">
+                <div className="mb-1 text-[11px] font-medium text-primary">Suggested note — review before applying</div>
+                <pre className="whitespace-pre-wrap font-sans text-xs">{suggestion}</pre>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    onClick={applySuggestion}
+                    className="rounded-md bg-primary px-2 py-1 text-[11px] font-medium text-primary-foreground hover:bg-primary/90"
+                  >
+                    Use this note
+                  </button>
+                  <button
+                    onClick={() => setSuggestion(null)}
+                    className="rounded-md border border-input bg-background px-2 py-1 text-[11px] hover:bg-secondary"
+                  >
+                    Discard
+                  </button>
+                </div>
+              </div>
+            ) : suggestReason ? (
+              <div className="mt-2 text-[11px] text-muted-foreground">{suggestReason}</div>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Right: Gmail thread */}
+        <div className="rounded-md border border-border bg-background">
+          <div className="flex items-center justify-between border-b border-border px-2 py-1.5">
+            <div className="text-xs font-medium">Gmail conversation</div>
+            <button
+              onClick={loadThread}
+              className="rounded-md border border-input bg-background px-2 py-0.5 text-[11px] hover:bg-secondary"
+            >
+              {messages === null ? (loadingThread ? "Loading…" : "Load thread") : (loadingThread ? "Refreshing…" : "Refresh")}
+            </button>
+          </div>
+          <div className="max-h-[420px] overflow-y-auto p-2">
+            {messages === null ? (
+              <div className="p-3 text-[11px] text-muted-foreground">
+                Load the thread to write the shipping note with the real conversation in view.
+              </div>
+            ) : messages.length === 0 ? (
+              <div className="p-3 text-[11px] text-muted-foreground">
+                No Gmail messages recorded for this creator yet.
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {messages.map((m) => (
+                  <li key={m.id} className="rounded-md border border-border p-2">
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                      <span className="font-medium text-foreground">
+                        {m.direction === "outbound" ? "→ Us" : `← ${m.from_name || m.from_email || "Creator"}`}
+                      </span>
+                      <span>{m.sent_at ? new Date(m.sent_at).toLocaleString() : ""}</span>
+                    </div>
+                    {m.subject ? <div className="mt-0.5 text-xs font-medium">{m.subject}</div> : null}
+                    {m.snippet ? <div className="mt-1 text-xs text-muted-foreground">{m.snippet}</div> : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 
 
 function PerryApprovalPanel({ c }: { c: CreatorRow }) {
