@@ -120,6 +120,12 @@ export interface CreatorWorkspace {
   shippingCountry: string | null;
   carrier: string | null;
 
+  // Sample product & note (used by Shipping tab)
+  productRequested: SurvivalFlavor | null;
+  quantity: number | null;
+  shippingNote: string | null;
+
+
   contentPromised: string | null;
   contentReceived: boolean;
   publishedPlatforms: string[];
