@@ -74,7 +74,6 @@ function CreatorsList() {
   const [amazonFilter, setAmazonFilter] = useState<"All" | AmazonStatus>("All");
   const [showImport, setShowImport] = useState(false);
   const [showResearch, setShowResearch] = useState(false);
-  const roi = useMemo(() => rollupRoi(), [allCreators]);
   const testCreators = useTestCreators();
 
   // Merge synthetic TEST creators (localStorage) with the imported spreadsheet
