@@ -251,6 +251,57 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_prospects: {
+        Row: {
+          company_name: string | null
+          contact_email: string | null
+          contact_name: string | null
+          created_at: string
+          id: string
+          imported_by: string | null
+          normalized_domain: string
+          notes: string | null
+          phone: string | null
+          raw_row: Json | null
+          source: string | null
+          stage: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          company_name?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          created_at?: string
+          id?: string
+          imported_by?: string | null
+          normalized_domain: string
+          notes?: string | null
+          phone?: string | null
+          raw_row?: Json | null
+          source?: string | null
+          stage?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          company_name?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          created_at?: string
+          id?: string
+          imported_by?: string | null
+          normalized_domain?: string
+          notes?: string | null
+          phone?: string | null
+          raw_row?: Json | null
+          source?: string | null
+          stage?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
       team_role_assignments: {
         Row: {
           created_at: string

@@ -6,6 +6,7 @@ import {
   ShieldAlert, Trash2, Beaker, Download, History, AlertTriangle, Info,
 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
+import { ImportProspectsSection } from "@/components/settings/ImportProspectsSection";
 import { useAuth } from "@/lib/current-user";
 import { connectAppUser, type AppUserOAuthTraceEvent } from "@/integrations/lovable/appUserConnectorClient";
 import {
@@ -51,6 +52,7 @@ function SettingsPage() {
       <PageHeader eyebrow="Settings" title="Your workspace" description="Personal integrations, admin tools, and preferences." />
       <GmailSection />
       <ProfileSection />
+      <ImportProspectsSection />
       <TestModeSection />
       {isExecutive ? <DataManagementSection /> : <NonAdminDataManagementNote />}
     </div>
