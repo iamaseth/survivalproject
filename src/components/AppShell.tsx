@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/lib/current-user";
-import { setCurrentActor } from "@/lib/creator-workspace";
+import { setCurrentActor, hydrateWorkspaceFromDB } from "@/lib/creator-workspace";
 import { SignInCard } from "@/routes/auth";
 import { pollGmailForReplies } from "@/lib/gmail.functions";
 import { TestModeBanner } from "@/components/TestModeBanner";
