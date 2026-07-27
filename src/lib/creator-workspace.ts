@@ -262,11 +262,21 @@ export function defaultsFor(c: CreatorRow): CreatorWorkspace {
 }
 
 // ---------- Store ----------
+// Team-shared: source of truth is public.creator_workspace in Supabase.
+// This module keeps a synchronous in-memory cache that is hydrated from DB
+// on app boot (see `hydrateWorkspaceFromDB` below) so every callsite that
+// reads workspace state synchronously continues to work. Writes update the
+// cache immediately (optimistic) and asynchronously upsert to the DB.
+//
+// The old localStorage key is kept ONLY as a source for the one-time
+// migration to the DB (see `migrateLegacyLocalWorkspace`); after successful
+// migration it is deleted so the cache is DB-driven going forward.
 const LS_KEY = "st.creator-workspace.v1";
+const MIGRATED_FLAG = "st.workspace.migrated.v1";
 type Overrides = Partial<CreatorWorkspace>;
 type StoreShape = Record<string, Overrides>;
 
-function readLS(): StoreShape {
+function readLegacyLS(): StoreShape {
   if (typeof window === "undefined") return {};
   try {
     const raw = window.localStorage.getItem(LS_KEY);
@@ -274,13 +284,14 @@ function readLS(): StoreShape {
   } catch { return {}; }
 }
 
-let cache: StoreShape = readLS();
+// Cache starts empty; hydration fills it. If the browser had legacy
+// localStorage data, we seed the cache from it too so the UI is not blank
+// before hydration finishes — the boot flow uploads that data to the DB.
+let cache: StoreShape = readLegacyLS();
 const listeners = new Set<() => void>();
+let hydrated = false;
 
 function emit() {
-  if (typeof window !== "undefined") {
-    try { window.localStorage.setItem(LS_KEY, JSON.stringify(cache)); } catch { /* ignore */ }
-  }
   listeners.forEach((l) => l());
 }
 function subscribe(fn: () => void) { listeners.add(fn); return () => listeners.delete(fn); }
@@ -303,6 +314,93 @@ export function useWorkspace(c: CreatorRow): CreatorWorkspace {
   return getWorkspace(c);
 }
 
+// Convert CreatorWorkspace overrides (camelCase) <-> DB row (snake_case).
+const CAMEL_TO_SNAKE: Record<string, string> = {
+  assignedTo: "assigned_to",
+  assignedDate: "assigned_date",
+  currentOwner: "current_owner",
+  outreachStatus: "outreach_status",
+  contactMethod: "contact_method",
+  emailDraftCreated: "email_draft_created",
+  emailSent: "email_sent",
+  dateSent: "date_sent",
+  lastContactDate: "last_contact_date",
+  emailOverride: "email_override",
+  nextFollowUpDate: "next_follow_up_date",
+  followUpCount: "follow_up_count",
+  waitingForReply: "waiting_for_reply",
+  noResponse: "no_response",
+  responded: "responded",
+  gmailMessageId: "gmail_message_id",
+  gmailThreadId: "gmail_thread_id",
+  gmailConfirmedAt: "gmail_confirmed_at",
+  savedGmailDraft: "saved_gmail_draft",
+  sampleRequired: "sample_required",
+  addressReceived: "address_received",
+  sampleShipped: "sample_shipped",
+  trackingNumber: "tracking_number",
+  deliveryStatus: "delivery_status",
+  shippingName: "shipping_name",
+  shippingCompany: "shipping_company",
+  shippingAddress1: "shipping_address1",
+  shippingAddress2: "shipping_address2",
+  shippingCity: "shipping_city",
+  shippingState: "shipping_state",
+  shippingPostalCode: "shipping_postal_code",
+  shippingCountry: "shipping_country",
+  carrier: "carrier",
+  contentPromised: "content_promised",
+  contentReceived: "content_received",
+  publishedPlatforms: "published_platforms",
+  publishDate: "publish_date",
+  teamNotes: "team_notes",
+  aiRecommendation: "ai_recommendation",
+  researchNotes: "research_notes",
+  executiveNotes: "executive_notes",
+  activity: "activity",
+  createdBy: "created_by",
+  createdByRole: "created_by_role",
+  lastModifiedBy: "last_modified_by",
+  lastModifiedByRole: "last_modified_by_role",
+  lastModifiedAt: "last_modified_at",
+  lastActivityBy: "last_activity_by",
+  supervisor: "supervisor",
+  doNotContact: "do_not_contact",
+};
+const SNAKE_TO_CAMEL: Record<string, string> = Object.fromEntries(
+  Object.entries(CAMEL_TO_SNAKE).map(([k, v]) => [v, k]),
+);
+
+function overridesToRow(id: string, ov: Overrides): Record<string, unknown> {
+  const out: Record<string, unknown> = { creator_id: id };
+  for (const [k, v] of Object.entries(ov)) {
+    const col = CAMEL_TO_SNAKE[k];
+    if (col) out[col] = v as unknown;
+  }
+  return out;
+}
+function rowToOverrides(row: Record<string, unknown>): Overrides {
+  const out: Overrides = {};
+  for (const [k, v] of Object.entries(row)) {
+    if (k === "creator_id" || k === "created_at" || k === "updated_at") continue;
+    const cam = SNAKE_TO_CAMEL[k];
+    if (cam) (out as Record<string, unknown>)[cam] = v;
+  }
+  return out;
+}
+
+// Persist to DB (fire-and-forget; errors surface via console + optional toast).
+async function persistToDB(id: string, patch: Overrides) {
+  if (typeof window === "undefined") return;
+  try {
+    const mod = await import("./creator-workspace.functions");
+    const row = overridesToRow(id, { ...cache[id], ...patch });
+    await mod.upsertWorkspace({ data: { patch: row as never } });
+  } catch (e) {
+    console.error("[creator-workspace] persistToDB failed", id, e);
+  }
+}
+
 export function updateWorkspace(id: string, patch: Overrides) {
   const stamped: Overrides = { ...patch };
   const actor = getCurrentActor();
@@ -318,6 +416,77 @@ export function updateWorkspace(id: string, patch: Overrides) {
   }
   cache = { ...cache, [id]: { ...(cache[id] ?? {}), ...stamped } };
   emit();
+  void persistToDB(id, stamped);
+}
+
+// ---------- Boot hydration + one-time localStorage migration ----------
+export async function hydrateWorkspaceFromDB(): Promise<void> {
+  if (hydrated || typeof window === "undefined") return;
+  hydrated = true;
+  try {
+    const mod = await import("./creator-workspace.functions");
+    const { rows } = await mod.listWorkspaces();
+    const next: StoreShape = { ...cache };
+    for (const r of rows) {
+      const id = (r as Record<string, unknown>).creator_id as string;
+      // DB wins over any pre-hydration localStorage snapshot.
+      next[id] = rowToOverrides(r as Record<string, unknown>);
+    }
+    cache = next;
+    emit();
+    await migrateLegacyLocalWorkspace();
+  } catch (e) {
+    console.error("[creator-workspace] hydrateWorkspaceFromDB failed", e);
+  }
+}
+
+async function migrateLegacyLocalWorkspace(): Promise<void> {
+  if (typeof window === "undefined") return;
+  try {
+    if (window.localStorage.getItem(MIGRATED_FLAG)) return;
+    const legacy = readLegacyLS();
+    if (Object.keys(legacy).length === 0) {
+      window.localStorage.setItem(MIGRATED_FLAG, new Date().toISOString());
+      return;
+    }
+    // Convert camelCase overrides to snake_case rows for the server.
+    const overrides: Record<string, Record<string, unknown>> = {};
+    for (const [id, ov] of Object.entries(legacy)) overrides[id] = overridesToRow(id, ov);
+    const mod = await import("./creator-workspace.functions");
+    const result = await mod.migrateLocalWorkspace({ data: { overrides } });
+    // Record any conflicts for the Settings review banner.
+    if (result.conflicted && result.conflicted.length > 0) {
+      window.localStorage.setItem(
+        "st.workspace.migration.conflicts.v1",
+        JSON.stringify(result.conflicted),
+      );
+    }
+    window.localStorage.setItem(MIGRATED_FLAG, new Date().toISOString());
+    window.localStorage.removeItem(LS_KEY);
+    // Re-hydrate to reflect merged DB state.
+    const { rows } = await mod.listWorkspaces();
+    const next: StoreShape = {};
+    for (const r of rows) {
+      const id = (r as Record<string, unknown>).creator_id as string;
+      next[id] = rowToOverrides(r as Record<string, unknown>);
+    }
+    cache = next;
+    emit();
+  } catch (e) {
+    console.error("[creator-workspace] migrateLegacyLocalWorkspace failed", e);
+  }
+}
+
+export function getWorkspaceMigrationConflicts(): Array<{ creatorId: string; field: string; local: unknown; db: unknown }> {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem("st.workspace.migration.conflicts.v1");
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+export function clearWorkspaceMigrationConflicts() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem("st.workspace.migration.conflicts.v1");
 }
 
 export function addActivity(c: CreatorRow, ev: Omit<Activity, "id">) {
