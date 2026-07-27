@@ -73,6 +73,17 @@ export interface SavedGmailDraft {
   updatedAt: string;
 }
 
+export const SURVIVAL_FLAVORS = [
+  "Vanilla",
+  "Chocolate",
+  "Strawberry",
+  "Butterscotch",
+  "Banana",
+  "Blueberry",
+  "Cherry",
+] as const;
+export type SurvivalFlavor = (typeof SURVIVAL_FLAVORS)[number];
+
 export interface CreatorWorkspace {
   assignedTo: OutreachOwner;
   assignedDate: string | null;
