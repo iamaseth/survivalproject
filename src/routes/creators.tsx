@@ -16,6 +16,7 @@ import {
   type CreatorRow,
   type OutreachOwner,
   type AmazonStatus,
+  useCreatorsVersion,
 } from "@/lib/creator-partnerships";
 import { useDashboardCounts, getWorkspace, isWaitingForReply, isTestCreatorId } from "@/lib/creator-workspace";
 import { useTestCreators, testCreatorToRow } from "@/lib/test-creators";
