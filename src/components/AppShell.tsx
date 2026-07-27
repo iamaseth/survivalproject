@@ -54,6 +54,14 @@ export function AppShell() {
     }
   }, [auth]);
 
+  // Hydrate team-shared workspace state from Supabase once per session; the
+  // helper also runs the one-time localStorage → DB migration on first boot.
+  useEffect(() => {
+    if (auth.status === "authenticated" && auth.profile.role) {
+      void hydrateWorkspaceFromDB();
+    }
+  }, [auth.status, auth.profile?.role]);
+
   // Background Gmail poller — checks every 3 minutes for new creator replies
   // once the user is signed in with a role. Silently skipped if Gmail isn't
   // connected (the server fn returns { polled: false, reason: "not_connected" }).
