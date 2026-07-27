@@ -441,6 +441,10 @@ const CAMEL_TO_SNAKE: Record<string, string> = {
   shippingPostalCode: "shipping_postal_code",
   shippingCountry: "shipping_country",
   carrier: "carrier",
+  productRequested: "product_requested",
+  quantity: "quantity",
+  shippingNote: "shipping_note",
+
   contentPromised: "content_promised",
   contentReceived: "content_received",
   publishedPlatforms: "published_platforms",
