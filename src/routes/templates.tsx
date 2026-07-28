@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  Plus, Pencil, Trash2, CheckCircle2, ShieldCheck, Loader2, X, FileText, AlertCircle,
+  Plus, Pencil, Trash2, CheckCircle2, ShieldCheck, Loader2, X, FileText, AlertCircle, Sparkles,
 } from "lucide-react";
 
 import { PageHeader } from "@/components/PageHeader";
@@ -14,6 +14,7 @@ import {
   upsertEmailTemplate,
   deleteEmailTemplate,
   approveEmailTemplate,
+  seedStarterEmailTemplates,
 } from "@/lib/templates.functions";
 import {
   applyMergeFields,
@@ -37,6 +38,7 @@ function TemplatesPage() {
   const upsert = useServerFn(upsertEmailTemplate);
   const del = useServerFn(deleteEmailTemplate);
   const approve = useServerFn(approveEmailTemplate);
+  const seed = useServerFn(seedStarterEmailTemplates);
 
   const qc = useQueryClient();
   const q = useQuery({
@@ -74,6 +76,22 @@ function TemplatesPage() {
     },
     onError: (e) => toast.error("Delete failed", { description: e instanceof Error ? e.message : String(e) }),
   });
+  const seedM = useMutation({
+    mutationFn: () => seed({}),
+    onSuccess: (r) => {
+      const created = r.created?.length ?? 0;
+      const skipped = r.skipped?.length ?? 0;
+      if (created === 0) {
+        toast.info("Starter templates already exist", { description: `${skipped} skipped.` });
+      } else {
+        toast.success(`Generated ${created} starter template${created === 1 ? "" : "s"}`, {
+          description: `${skipped} already existed. Review and Approve each one to activate it.`,
+        });
+      }
+      qc.invalidateQueries({ queryKey: ["email-templates"] });
+    },
+    onError: (e) => toast.error("Starter generation failed", { description: e instanceof Error ? e.message : String(e) }),
+  });
 
   const currentUserId = auth.status === "authenticated" ? auth.profile.userId : null;
   const isExec = auth.status === "authenticated" && auth.profile.role === "executive";
@@ -85,12 +103,23 @@ function TemplatesPage() {
         title="Email templates"
         description="Reusable, human-approved outreach messages with merge fields. Templates must be approved before they can be used for real sends. This is the fast/cheap alternative to the AI drafter."
         actions={
-          <button
-            onClick={() => setEditing("new")}
-            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
-            <Plus className="h-4 w-4" /> New template
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => seedM.mutate()}
+              disabled={seedM.isPending}
+              className="inline-flex items-center gap-1.5 rounded-md border border-input bg-card px-3 py-2 text-sm font-medium hover:bg-secondary disabled:opacity-60"
+              title="Create AI-generated starter drafts for the 6 standard categories (unapproved — review and Approve each before use)."
+            >
+              {seedM.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              Generate starter templates
+            </button>
+            <button
+              onClick={() => setEditing("new")}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              <Plus className="h-4 w-4" /> New template
+            </button>
+          </div>
         }
       />
 
