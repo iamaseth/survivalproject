@@ -103,12 +103,23 @@ function TemplatesPage() {
         title="Email templates"
         description="Reusable, human-approved outreach messages with merge fields. Templates must be approved before they can be used for real sends. This is the fast/cheap alternative to the AI drafter."
         actions={
-          <button
-            onClick={() => setEditing("new")}
-            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
-            <Plus className="h-4 w-4" /> New template
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => seedM.mutate()}
+              disabled={seedM.isPending}
+              className="inline-flex items-center gap-1.5 rounded-md border border-input bg-card px-3 py-2 text-sm font-medium hover:bg-secondary disabled:opacity-60"
+              title="Create AI-generated starter drafts for the 6 standard categories (unapproved — review and Approve each before use)."
+            >
+              {seedM.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              Generate starter templates
+            </button>
+            <button
+              onClick={() => setEditing("new")}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              <Plus className="h-4 w-4" /> New template
+            </button>
+          </div>
         }
       />
 
