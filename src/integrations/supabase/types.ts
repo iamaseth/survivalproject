@@ -458,6 +458,48 @@ export type Database = {
         }
         Relationships: []
       }
+      email_templates: {
+        Row: {
+          active: boolean
+          approved_at: string | null
+          approved_by: string | null
+          body: string
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          segment: string | null
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          approved_at?: string | null
+          approved_by?: string | null
+          body?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          name: string
+          segment?: string | null
+          subject?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          approved_at?: string | null
+          approved_by?: string | null
+          body?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          segment?: string | null
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       gmail_messages: {
         Row: {
           body_text: string | null
@@ -727,7 +769,28 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      approve_email_template: {
+        Args: { _id: string }
+        Returns: {
+          active: boolean
+          approved_at: string | null
+          approved_by: string | null
+          body: string
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          segment: string | null
+          subject: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "email_templates"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       app_role:
