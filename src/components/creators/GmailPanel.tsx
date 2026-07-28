@@ -6,11 +6,12 @@
 //   - Sending from a TEST creator record redirects the recipient to
 //     TEST_RECIPIENT_EMAIL (thenxyz@gmail.com) and requires an explicit
 //     final confirmation dialog.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Mail, MailCheck, Send, Sparkles, RefreshCw, AlertCircle, MailX, ShieldAlert, Beaker, XCircle, Save, Pencil } from "lucide-react";
+import { Loader2, Mail, MailCheck, Send, Sparkles, RefreshCw, AlertCircle, MailX, ShieldAlert, Beaker, XCircle, Save, Pencil, FileText, ChevronDown, CheckCircle2 } from "lucide-react";
 import type { CreatorRow } from "@/lib/creator-partnerships";
 import {
   useWorkspace,
@@ -32,6 +33,8 @@ import {
   saveGmailDraft,
   type DraftMode,
 } from "@/lib/gmail.functions";
+import { listEmailTemplates } from "@/lib/templates.functions";
+import { applyMergeFields, mergeContextForCreator, orderTemplatesForCreator, type EmailTemplate } from "@/lib/templates";
 
 const DRAFT_MODES: DraftMode[] = [
   "Initial Outreach", "Follow-up", "Thank You", "Shipping",
