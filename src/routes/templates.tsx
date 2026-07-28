@@ -38,6 +38,7 @@ function TemplatesPage() {
   const upsert = useServerFn(upsertEmailTemplate);
   const del = useServerFn(deleteEmailTemplate);
   const approve = useServerFn(approveEmailTemplate);
+  const seed = useServerFn(seedStarterEmailTemplates);
 
   const qc = useQueryClient();
   const q = useQuery({
