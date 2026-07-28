@@ -185,7 +185,7 @@ function NoAccess({ email, onSignOut }: { email: string; onSignOut: () => void }
         <h1 className="font-display text-2xl text-foreground">You're signed in, but not on the team list</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           <span className="font-medium text-foreground">{email}</span> isn't mapped to a Survival Tabs role yet.
-          Ask Rena or Perry to add you.
+          Ask a team admin to add you.
         </p>
         <button
           onClick={onSignOut}

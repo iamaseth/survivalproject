@@ -24,6 +24,7 @@ const ROLE_TO_LEGACY: Record<AppRole, TeamMember["role"]> = {
   partnership_manager:     "team_lead",
   partnership_coordinator: "outreach",
   executive:               "executive",
+  shopify_content_editor:  "outreach",
 };
 
 const TITLE_BY_ID: Record<TeamMemberId, string> = {

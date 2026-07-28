@@ -61,7 +61,7 @@ export function SignInCard({
           <p className="mt-3 text-xs text-red-600">{error}</p>
         ) : null}
         <p className="mt-6 text-[11px] text-muted-foreground">
-          Access is restricted. If your Google account isn't recognised, ask Rena or Perry to add you to the team list.
+          Access is restricted. If your Google account isn't recognised, ask a team admin to add you to the team list.
         </p>
         <div className="mt-4 flex items-center justify-center gap-1 text-muted-foreground/70">
           <LogIn className="h-3 w-3" />
