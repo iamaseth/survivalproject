@@ -1,117 +1,89 @@
-# Two tracks: AI Research UI + ROI/Content Tracking
 
-Scope is exactly the two items you named. Knowledge Center guides table is explicitly deferred to Module B.
+## Approved Email Templates
 
----
+Reusable, human-approved outreach templates that get merged into the composer with no AI call. The existing "Generate AI draft" flow stays exactly as it is — the template picker sits next to it as a faster/cheaper alternative.
 
-## Track 1 — Wire the AI-research UI to `upsertCreatorFromResearch`
+### 1. Database (`email_templates`)
 
-The server fn already exists (`src/lib/creators.functions.ts::upsertCreatorFromResearch`, insert-only, dedup by `code` then `normalized_domain`). No UI reaches it today. Add one.
+New table `public.email_templates`:
 
-**New: `src/components/creators/ResearchDrawer.tsx`**
-- Trigger: "Research a new creator" button in the header of `/creators` (visible to Seth + executives; anyone can submit but Seth is the natural user).
-- Two modes in the drawer:
-  1. **Manual entry** — form fields matching `ResearchCreatorInput` (name, code, website/normalized_domain, segment, platforms, email + socials, priority, amazon, recommended offer, research notes).
-  2. **AI assist** — a "Paste URL, bio, or notes" textarea. Calls a new `researchCreatorDraft` server fn (Lovable AI Gateway, `google/gemini-3.5-flash`, structured `Output.object` with the same fields as `ResearchCreatorInput`). Result populates the form; user reviews and edits before submitting.
-- Domain normalization uses the existing helper in `src/lib/prospects-parse.ts` client-side so the preview shows what the dedup key will be.
-- Submit → `upsertCreatorFromResearch` → toast (`created: true` = "Added to roster", `false` = "Already in roster, opening existing"), invalidate the creators query, `navigate` to `/creators/$id`.
+- `id` uuid PK
+- `name` text (required, unique per active template)
+- `segment` text nullable (free-form; e.g. `Pet`, `Fitness`, `Outdoor`, or empty = `General`)
+- `subject` text
+- `body` text (supports merge fields `{{creator_name}}`, `{{platform}}`, `{{handle}}`, `{{segment}}`, `{{sender_first_name}}`)
+- `created_by` uuid → auth.users
+- `approved_by` uuid nullable → auth.users
+- `approved_at` timestamptz nullable
+- `active` bool default false — flips true only when `approved_by` is set; goes back to false on any edit to `subject`/`body`/`name`/`segment`
+- `created_at`, `updated_at` timestamptz with the standard `set_updated_at` trigger
 
-**New: `src/lib/ai-research.functions.ts`**
-- `researchCreatorDraft({ input })` — `createServerFn` + `requireSupabaseAuth`. Uses shared `createLovableAiGatewayProvider` (create `src/lib/ai-gateway.server.ts` if missing) + `generateText` with `Output.object` returning the draft fields. Prompt clamps notes length in text (not schema).
-- Errors: 429/402 surface as toasts in the drawer; on any AI failure the form stays open and the user can still submit manually.
+RLS (all `TO authenticated`, gated by `private.is_team_member`):
 
-**Also updated: `src/routes/creators.tsx`** — add the "Research a new creator" button next to the existing "Import from Google Sheet" button.
+- Any team member can SELECT.
+- Any team member can INSERT (their own `created_by = auth.uid()`).
+- Any team member can UPDATE — but a trigger clears `approved_by`/`approved_at` and sets `active=false` whenever a non-approver field changes, so re-approval is required.
+- Only executive or partnership_manager can APPROVE (a separate `approve_email_template(id)` SECURITY DEFINER function that stamps `approved_by = auth.uid()`, `approved_at = now()`, `active = true`).
+- Only the creator or executive can DELETE.
 
----
+Standard GRANTs (`SELECT/INSERT/UPDATE/DELETE` to `authenticated`, `ALL` to `service_role`).
 
-## Track 2 — ROI / Content Tracking on `creator_workspace`
+### 2. Server functions (`src/lib/templates.functions.ts`)
 
-One migration adds four concerns. All fields live on `creator_workspace` (per your spec), gated by existing `is_team_member` RLS.
+All use `.middleware([requireSupabaseAuth])`; RLS enforces access.
 
-### 2a. Contact-attempt log
-New `jsonb` column `contact_attempts` (default `[]`). Each entry:
+- `listTemplates({ activeOnly?: boolean, segment?: string })` — for the picker and the Templates page.
+- `upsertTemplate({ id?, name, segment, subject, body })` — create or edit.
+- `approveTemplate({ id })` — calls the RPC; server checks role via `private.has_role`.
+- `deleteTemplate({ id })`.
+
+No AI code is touched.
+
+### 3. New route: `/templates`
+
+`src/routes/templates.tsx` under existing nav (no auth layout in this project — the shell handles gating). Add a `Templates` nav item to `src/components/AppShell.tsx` between Communications and Knowledge Center, icon `FileText`.
+
+Page layout:
+
+- Header + "New template" button (opens the editor drawer).
+- List/table of templates with columns: Name · Segment · Status (Draft / Approved / Needs re-approval) · Updated · Created by · Actions.
+- Row actions: Edit, Approve (visible only to executive / partnership_manager, and only when not already active), Delete (creator or executive).
+- Editor drawer: fields for Name, Segment (free-text with datalist of existing segments + "General"), Subject, Body (textarea with a merge-field cheat sheet under it), a live "Preview with sample creator" panel that substitutes merge fields, and a Save button.
+- Editing an approved template shows a clear warning that saving requires re-approval before it can be used.
+
+Visibility rule: research managers and coordinators see the page but only get Approve/Delete when their role permits (hide, don't disable — matches existing conventions).
+
+### 4. GmailPanel integration
+
+`src/components/creators/GmailPanel.tsx` — add a third button in the same button row as `Generate AI draft` and `Save as Gmail draft`:
+
+- Button label: `Use approved template` (icon `FileText`).
+- Opens a small popover/menu listing active templates. If the creator has a segment, matching-segment templates come first, then General.
+- Empty state: "No approved templates yet — create one in Templates."
+- Selecting a template substitutes merge fields (client-side, pure string replace) using the current `CreatorRow` + signed-in user's first name and fills `subject`/`body`, overwriting whatever's there after a lightweight confirm if the body is non-empty.
+- No server call to the AI gateway. No workspace mutation until the user actually saves the draft / sends (existing paths handle that).
+
+Merge substitutions (undefined → empty string, trimmed):
+
+```text
+{{creator_name}}       → c.name
+{{platform}}           → first of c.instagram/tiktok/youtube/facebook that exists
+{{handle}}             → same, but the handle string only
+{{segment}}            → c.segment ?? "your niche"
+{{sender_first_name}}  → auth.profile.fullName.split(" ")[0]
 ```
-{ id, at, channel: "email"|"dm"|"call"|"other", direction: "outbound"|"inbound",
-  subject?, summary, actor, actorName?, gmailMessageId?, gmailThreadId? }
-```
-- Distinct from `activity` (which is workflow events). Contact attempts are the audit trail of *contact touches only* — used for follow-up cadence and ROI attribution.
-- `logConfirmedGmailSend` in `creator-workspace.ts` also appends an `outbound/email` contact attempt (deduped by `gmailMessageId`), so the Gmail flow auto-populates it.
-- New UI card on `/creators/$id` **Communications tab**: "Contact log" table (channel · direction · date · summary · linked Gmail thread when present) with a "Log manual attempt" button (call, in-person, DM).
 
-### 2b. Content tracking
-New columns:
-- `content_pieces jsonb default '[]'` — array of:
-  ```
-  { id, platform: "instagram"|"tiktok"|"youtube"|"facebook"|"blog"|"other",
-    url, postedAt, format: "post"|"reel"|"story"|"video"|"live"|"article",
-    views?, likes?, comments?, shares?, saves?,
-    estReach?, metricsUpdatedAt?, notes? }
-  ```
-- `content_status text` — enum-ish string: `not_promised | promised | in_progress | delivered | published | verified`.
-- `content_deadline date` — when the creator committed to post.
+### 5. Non-goals (out of scope for this change)
 
-UI: new "Content" tab section (replacing the current thin `contentPromised`/`contentReceived` pair) with an add-piece form, per-piece metric editor, and a "Copy metrics from URL" placeholder (no scraper — manual entry now).
+- No AI-assisted template authoring.
+- No versioning/history of past template edits.
+- No per-role template libraries — one shared list, filtered by segment.
+- No template analytics.
 
-Existing `contentPromised` / `contentReceived` / `publishedPlatforms` / `publishDate` are kept for back-compat; the new UI writes into `content_pieces` and derives `contentReceived`/`publishDate` from it.
+### Technical details
 
-### 2c. Cost / payout
-New columns:
-- `deal_type text` — `gifted | flat_fee | commission | hybrid | none` (default `gifted`).
-- `sample_cost_usd numeric(10,2)` — cost of the Survival Tabs sample(s) sent.
-- `shipping_cost_usd numeric(10,2)`.
-- `flat_fee_usd numeric(10,2)`.
-- `commission_rate numeric(5,4)` — 0..1.
-- `commission_sales_usd numeric(12,2)` — sales attributed to creator (manual entry for now).
-- `payout_notes text`.
-
-Derived server-side (kept simple, computed in a helper — no generated column, so the UI can override):
-- `total_cost_usd = sample_cost_usd + shipping_cost_usd + flat_fee_usd + (commission_rate * commission_sales_usd)`.
-
-UI: new **"Deal & ROI" tab** on `/creators/$id` with the cost inputs and a live-computed total.
-
-### 2d. ROI rollup
-New columns on `creator_workspace`:
-- `revenue_attributed_usd numeric(12,2)` — manual for v1 (later: linked to Amazon Attribution / affiliate feed).
-- `roi_ratio numeric(10,4)` — `revenue_attributed_usd / NULLIF(total_cost_usd,0)`, computed in the client + written back on save so it's queryable for the dashboard.
-- `roi_updated_at timestamptz`.
-
-Dashboard integration on `/creators`:
-- New Ops card: "Avg ROI (published creators)" — mean `roi_ratio` for creators with `content_status IN ('published','verified')` and `total_cost_usd > 0`.
-- New Ops card: "Total spend (30d)" — sum of `total_cost_usd` where `updated_at >= now() - 30d`.
-- Sortable "Top ROI" mini-list under the Ops row (top 5 by `roi_ratio`, linking to creator detail).
-
----
-
-## Technical details
-
-**Migration** (single file):
-- `ALTER TABLE public.creator_workspace ADD COLUMN contact_attempts jsonb NOT NULL DEFAULT '[]'::jsonb, ADD COLUMN content_pieces jsonb NOT NULL DEFAULT '[]'::jsonb, ADD COLUMN content_status text, ADD COLUMN content_deadline date, ADD COLUMN deal_type text NOT NULL DEFAULT 'gifted', ADD COLUMN sample_cost_usd numeric(10,2), ADD COLUMN shipping_cost_usd numeric(10,2), ADD COLUMN flat_fee_usd numeric(10,2), ADD COLUMN commission_rate numeric(5,4), ADD COLUMN commission_sales_usd numeric(12,2), ADD COLUMN payout_notes text, ADD COLUMN total_cost_usd numeric(12,2), ADD COLUMN revenue_attributed_usd numeric(12,2), ADD COLUMN roi_ratio numeric(10,4), ADD COLUMN roi_updated_at timestamptz;`
-- No new tables, no new policies (existing team-member RLS covers all columns).
-- Indexes: `CREATE INDEX creator_workspace_content_status_idx ON public.creator_workspace(content_status);` and `CREATE INDEX creator_workspace_roi_ratio_idx ON public.creator_workspace(roi_ratio DESC NULLS LAST);` — the dashboard rollups scan these.
-
-**Client type extension**:
-- Extend `CreatorWorkspace` in `src/lib/creator-workspace.ts` with the new fields + add camel↔snake mappings in `CAMEL_TO_SNAKE`.
-- Add helpers: `logContactAttempt(c, entry)`, `addContentPiece(c, piece)`, `updateContentPiece(c, id, patch)`, `computeROI(ws)` (pure), `useROIRollup()` (mean + top-5, memoized off the workspace cache).
-
-**Server fns** (add to `src/lib/creator-workspace.functions.ts`):
-- Existing `upsertWorkspace` already handles arbitrary patches — the new columns pass through without changes. No new server fn required for track 2.
-
-**UI files touched**:
-- `src/routes/creators.$id.tsx` — new "Deal & ROI" tab; expand Communications tab with contact log; expand Content tab with pieces.
-- `src/routes/creators.tsx` — Research button + two new Ops cards + Top ROI mini-list.
-- `src/components/creators/ResearchDrawer.tsx` (new).
-- `src/components/creators/ContactLog.tsx` (new).
-- `src/components/creators/ContentPieces.tsx` (new).
-- `src/components/creators/DealROI.tsx` (new).
-
-**Out of scope this pass** (as you said):
-- Knowledge Center guides table — deferred to Module B.
-- Amazon Attribution / affiliate auto-import — revenue is manual entry for v1.
-- No changes to Gmail send/receive, poll, or team inbox.
-
----
-
-## Order of operations (single response)
-1. Migration (columns + indexes) — awaits your approval.
-2. After approval: extend workspace types + helpers, add server fn for AI drafting, build the four new components, wire the two routes.
-3. Typecheck.
+- Migration path: single migration file with table + trigger + RPC + policies + grants.
+- The unapprove-on-edit trigger fires `BEFORE UPDATE OF subject, body, name, segment` and only when the row was already approved.
+- `approve_email_template` runs `SECURITY DEFINER` with `SET search_path = public, private`, checks `private.has_role(auth.uid(), 'executive') OR private.has_role(auth.uid(), 'partnership_manager')`, raises `insufficient_privilege` otherwise.
+- Merge substitution is a pure function `applyMergeFields(text, ctx)` in `src/lib/templates.ts` so both the Templates preview and GmailPanel share one implementation.
+- Nav gets a `Templates` entry; no route lives under an auth layout in this codebase — the AppShell already blocks unauthenticated / unroled users.
