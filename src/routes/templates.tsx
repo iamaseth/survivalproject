@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  Plus, Pencil, Trash2, CheckCircle2, ShieldCheck, Loader2, X, FileText, AlertCircle,
+  Plus, Pencil, Trash2, CheckCircle2, ShieldCheck, Loader2, X, FileText, AlertCircle, Sparkles,
 } from "lucide-react";
 
 import { PageHeader } from "@/components/PageHeader";
@@ -14,6 +14,7 @@ import {
   upsertEmailTemplate,
   deleteEmailTemplate,
   approveEmailTemplate,
+  seedStarterEmailTemplates,
 } from "@/lib/templates.functions";
 import {
   applyMergeFields,
