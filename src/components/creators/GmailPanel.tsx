@@ -652,3 +652,118 @@ function labelHint(stage: string): string {
   if (s.includes("outreach") || s.includes("contact") || s.includes("sent")) return "Outreach";
   return "Creator Partnerships";
 }
+
+function TemplatePicker({
+  creator, senderFullName, currentBodyIsEmpty, onApply,
+}: {
+  creator: CreatorRow;
+  senderFullName: string | null;
+  currentBodyIsEmpty: boolean;
+  onApply: (subject: string, body: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const list = useServerFn(listEmailTemplates);
+  const q = useQuery({
+    queryKey: ["email-templates", "active"],
+    queryFn: () => list({ data: { activeOnly: true } }),
+    enabled: open, // only fetch when the picker opens
+  });
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  const ordered = useMemo(() => {
+    const items: EmailTemplate[] = q.data?.templates ?? [];
+    return orderTemplatesForCreator(items, creator.segment);
+  }, [q.data, creator.segment]);
+
+  const ctx = useMemo(() => mergeContextForCreator(creator, senderFullName), [creator, senderFullName]);
+
+  const applyTemplate = (t: EmailTemplate) => {
+    if (!currentBodyIsEmpty) {
+      const ok = confirm(`Replace the current subject and body with the "${t.name}" template?`);
+      if (!ok) return;
+    }
+    const subject = applyMergeFields(t.subject, ctx);
+    const body = applyMergeFields(t.body, ctx);
+    onApply(subject, body);
+    setOpen(false);
+    toast.success("Template applied", { description: t.name });
+  };
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-sm hover:bg-secondary"
+      >
+        <FileText className="h-4 w-4" /> Use approved template
+        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+      </button>
+      {open ? (
+        <div className="absolute left-0 top-full z-30 mt-1 w-80 rounded-md border border-border bg-card shadow-lg">
+          <div className="border-b border-border px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+            Approved templates
+          </div>
+          {q.isLoading ? (
+            <div className="flex items-center gap-2 px-3 py-4 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…
+            </div>
+          ) : q.error ? (
+            <div className="px-3 py-4 text-xs text-red-700">Failed to load templates.</div>
+          ) : ordered.length === 0 ? (
+            <div className="px-3 py-4 text-xs text-muted-foreground">
+              No approved templates yet.{" "}
+              <Link to="/templates" className="text-primary underline" onClick={() => setOpen(false)}>
+                Create one
+              </Link>{" "}
+              in Templates.
+            </div>
+          ) : (
+            <ul className="max-h-72 overflow-auto py-1">
+              {ordered.map((t) => {
+                const segLabel = t.segment || "General";
+                const matchesSegment =
+                  creator.segment && t.segment &&
+                  creator.segment.trim().toLowerCase() === t.segment.trim().toLowerCase();
+                return (
+                  <li key={t.id}>
+                    <button
+                      type="button"
+                      onClick={() => applyTemplate(t)}
+                      className="flex w-full items-start justify-between gap-3 px-3 py-2 text-left hover:bg-secondary/60"
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium">{t.name}</div>
+                        <div className="truncate text-[11px] text-muted-foreground">{t.subject || "(no subject)"}</div>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                          matchesSegment ? "bg-emerald-100 text-emerald-800" : "bg-secondary text-muted-foreground"
+                        }`}>
+                          {segLabel}
+                        </span>
+                        <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <div className="border-t border-border px-3 py-2 text-[11px] text-muted-foreground">
+            Merge fields substituted for {creator.name}. No AI call.
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
