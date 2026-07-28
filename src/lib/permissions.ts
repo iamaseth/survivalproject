@@ -6,7 +6,8 @@ export type AppRole =
   | "executive"
   | "research_manager"
   | "partnership_manager"
-  | "partnership_coordinator";
+  | "partnership_coordinator"
+  | "shopify_content_editor";
 
 export type Permission =
   // shared
