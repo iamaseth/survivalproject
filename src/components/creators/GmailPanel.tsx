@@ -385,6 +385,12 @@ export function GmailPanel({ c, initialMode }: { c: CreatorRow; initialMode?: Dr
             {drafting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             {body ? "Rewrite with AI" : "Generate AI draft"}
           </button>
+          <TemplatePicker
+            creator={c}
+            senderFullName={auth.status === "authenticated" ? auth.profile.fullName : null}
+            currentBodyIsEmpty={!body.trim() && !subject.trim()}
+            onApply={(subj, bod) => { setSubject(subj); setBody(bod); }}
+          />
           <button
             onClick={onSaveDraft}
             disabled={savingDraft || !isConnected || needsReconnect || !to.trim() || !body.trim()}
