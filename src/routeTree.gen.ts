@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WebsiteRouteImport } from './routes/website'
 import { Route as VideoRouteImport } from './routes/video'
+import { Route as TemplatesRouteImport } from './routes/templates'
 import { Route as TeamActionsRouteImport } from './routes/team-actions'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SeoRouteImport } from './routes/seo'
@@ -42,6 +43,11 @@ const WebsiteRoute = WebsiteRouteImport.update({
 const VideoRoute = VideoRouteImport.update({
   id: '/video',
   path: '/video',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TemplatesRoute = TemplatesRouteImport.update({
+  id: '/templates',
+  path: '/templates',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TeamActionsRoute = TeamActionsRouteImport.update({
@@ -175,6 +181,7 @@ export interface FileRoutesByFullPath {
   '/seo': typeof SeoRoute
   '/settings': typeof SettingsRoute
   '/team-actions': typeof TeamActionsRoute
+  '/templates': typeof TemplatesRoute
   '/video': typeof VideoRoute
   '/website': typeof WebsiteRoute
   '/assets/$id': typeof AssetsIdRoute
@@ -201,6 +208,7 @@ export interface FileRoutesByTo {
   '/seo': typeof SeoRoute
   '/settings': typeof SettingsRoute
   '/team-actions': typeof TeamActionsRoute
+  '/templates': typeof TemplatesRoute
   '/video': typeof VideoRoute
   '/website': typeof WebsiteRoute
   '/assets/$id': typeof AssetsIdRoute
@@ -228,6 +236,7 @@ export interface FileRoutesById {
   '/seo': typeof SeoRoute
   '/settings': typeof SettingsRoute
   '/team-actions': typeof TeamActionsRoute
+  '/templates': typeof TemplatesRoute
   '/video': typeof VideoRoute
   '/website': typeof WebsiteRoute
   '/assets/$id': typeof AssetsIdRoute
@@ -256,6 +265,7 @@ export interface FileRouteTypes {
     | '/seo'
     | '/settings'
     | '/team-actions'
+    | '/templates'
     | '/video'
     | '/website'
     | '/assets/$id'
@@ -282,6 +292,7 @@ export interface FileRouteTypes {
     | '/seo'
     | '/settings'
     | '/team-actions'
+    | '/templates'
     | '/video'
     | '/website'
     | '/assets/$id'
@@ -308,6 +319,7 @@ export interface FileRouteTypes {
     | '/seo'
     | '/settings'
     | '/team-actions'
+    | '/templates'
     | '/video'
     | '/website'
     | '/assets/$id'
@@ -335,6 +347,7 @@ export interface RootRouteChildren {
   SeoRoute: typeof SeoRoute
   SettingsRoute: typeof SettingsRoute
   TeamActionsRoute: typeof TeamActionsRoute
+  TemplatesRoute: typeof TemplatesRoute
   VideoRoute: typeof VideoRoute
   WebsiteRoute: typeof WebsiteRoute
 }
@@ -353,6 +366,13 @@ declare module '@tanstack/react-router' {
       path: '/video'
       fullPath: '/video'
       preLoaderRoute: typeof VideoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/templates': {
+      id: '/templates'
+      path: '/templates'
+      fullPath: '/templates'
+      preLoaderRoute: typeof TemplatesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/team-actions': {
@@ -567,6 +587,7 @@ const rootRouteChildren: RootRouteChildren = {
   SeoRoute: SeoRoute,
   SettingsRoute: SettingsRoute,
   TeamActionsRoute: TeamActionsRoute,
+  TemplatesRoute: TemplatesRoute,
   VideoRoute: VideoRoute,
   WebsiteRoute: WebsiteRoute,
 }
