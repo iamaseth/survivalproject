@@ -76,6 +76,22 @@ function TemplatesPage() {
     },
     onError: (e) => toast.error("Delete failed", { description: e instanceof Error ? e.message : String(e) }),
   });
+  const seedM = useMutation({
+    mutationFn: () => seed({}),
+    onSuccess: (r) => {
+      const created = r.created?.length ?? 0;
+      const skipped = r.skipped?.length ?? 0;
+      if (created === 0) {
+        toast.info("Starter templates already exist", { description: `${skipped} skipped.` });
+      } else {
+        toast.success(`Generated ${created} starter template${created === 1 ? "" : "s"}`, {
+          description: `${skipped} already existed. Review and Approve each one to activate it.`,
+        });
+      }
+      qc.invalidateQueries({ queryKey: ["email-templates"] });
+    },
+    onError: (e) => toast.error("Starter generation failed", { description: e instanceof Error ? e.message : String(e) }),
+  });
 
   const currentUserId = auth.status === "authenticated" ? auth.profile.userId : null;
   const isExec = auth.status === "authenticated" && auth.profile.role === "executive";
