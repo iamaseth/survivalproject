@@ -69,6 +69,7 @@ export const ROLE_PERMISSIONS: Record<AppRole, ReadonlySet<Permission>> = {
   research_manager:         new Set(RESEARCH),
   partnership_manager:      new Set(PM),
   partnership_coordinator:  new Set(COORDINATOR),
+  shopify_content_editor:   new Set<Permission>(),
 };
 
 export function can(role: AppRole | null, perm: Permission): boolean {
@@ -81,6 +82,7 @@ export const ROLE_LABEL: Record<AppRole, string> = {
   research_manager:        "Research Manager",
   partnership_manager:     "Partnership Manager",
   partnership_coordinator: "Partnership Coordinator",
+  shopify_content_editor:  "Shopify Content Editor",
 };
 
 // Map DB app_role → the legacy TeamMemberId used inside creator-workspace
