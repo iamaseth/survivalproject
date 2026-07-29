@@ -20,6 +20,19 @@ export type DeliveryStatus =
   | "Returned"
   | "Failed";
 
+export type ReviewStatus =
+  | "Not Reviewed"
+  | "Flagged for Second Look"
+  | "Approved to Send"
+  | "Skip";
+
+export const REVIEW_STATUSES: ReviewStatus[] = [
+  "Not Reviewed",
+  "Flagged for Second Look",
+  "Approved to Send",
+  "Skip",
+];
+
 export type ActivityKind =
   | "researched"
   | "assigned_rena"
