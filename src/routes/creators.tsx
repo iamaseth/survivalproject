@@ -47,11 +47,13 @@ function CreatorsLayout() {
   return <CreatorsList />;
 }
 
-type QueueKey = "all" | "rena" | "vina" | "waiting" | "overdue" | "perry" | "shipping" | "ready";
+type QueueKey = "all" | "rena" | "vina" | "waiting" | "overdue" | "perry" | "shipping" | "ready" | "second_look" | "important";
 
 const QUEUES: { key: QueueKey; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { key: "all", label: "All creators", icon: Search },
   { key: "ready", label: "Ready for outreach", icon: Mail },
+  { key: "second_look", label: "Flagged for Second Look", icon: Flag },
+  { key: "important", label: "Flagged Important", icon: Star },
   { key: "rena", label: "Rena queue", icon: Mail },
   { key: "vina", label: "Vina queue", icon: Mail },
   { key: "waiting", label: "Waiting for reply", icon: Clock },
