@@ -23,7 +23,7 @@ import { useTestCreators, testCreatorToRow } from "@/lib/test-creators";
 import { useCurrentTeamMember } from "@/lib/current-team-member";
 import { PageHeader } from "@/components/PageHeader";
 import { PersonalizedDashboard } from "@/components/creators/PersonalizedDashboard";
-import { ExternalLink, Search, Download, AlertCircle, Clock, Mail, Truck, ShieldCheck, Users, CalendarClock, Package, Handshake, Beaker, Sparkles, DollarSign, TrendingUp } from "lucide-react";
+import { ExternalLink, Search, Download, AlertCircle, Clock, Mail, Truck, ShieldCheck, Users, CalendarClock, Package, Handshake, Beaker, Sparkles, DollarSign, TrendingUp, Flag, Star } from "lucide-react";
 import { ResearchDrawer } from "@/components/creators/ResearchDrawer";
 import { rollupRoi } from "@/lib/creator-workspace";
 
