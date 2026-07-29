@@ -157,6 +157,13 @@ export interface CreatorWorkspace {
   supervisor?: string | null;
 
   doNotContact?: boolean;
+
+  // Rena's structured review pass (per creator).
+  reviewStatus: ReviewStatus;
+  // Rena's personal bookmark — manual, independent of the review pass.
+  importantFlag: boolean;
+  importantNote: string | null;
+
   activity: Activity[];
 
   // --- v6: contact log, content pieces, deal & ROI ---
