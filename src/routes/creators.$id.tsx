@@ -164,6 +164,8 @@ function CreatorDetail() {
 
       <PositiveReplyNudge c={c} onJump={setTab} />
 
+      <ReviewAndImportantBar c={c} />
+
       {/* Snapshot */}
       <section className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-4">
         <SnapshotCard icon={<Mail className="h-4 w-4" />} label="Outreach" value={ws.outreachStatus} tone="bg-secondary text-secondary-foreground" />
