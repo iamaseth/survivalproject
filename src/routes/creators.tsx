@@ -128,6 +128,8 @@ function CreatorsList() {
       ["Awaiting Address", "Address Received", "Shipped", "Delivered"].includes(c.normalizedSampleStatus)
     ).length,
     ready: allCreators.filter(isReadyForOutreach).length,
+    second_look: allCreators.filter((c) => getWorkspace(c).reviewStatus === "Flagged for Second Look").length,
+    important: allCreators.filter((c) => getWorkspace(c).importantFlag).length,
   }), [allCreators, ops.waiting]);
   const roi = useMemo(() => rollupRoi(), [allCreators]);
 
