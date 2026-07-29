@@ -20,6 +20,19 @@ export type DeliveryStatus =
   | "Returned"
   | "Failed";
 
+export type ReviewStatus =
+  | "Not Reviewed"
+  | "Flagged for Second Look"
+  | "Approved to Send"
+  | "Skip";
+
+export const REVIEW_STATUSES: ReviewStatus[] = [
+  "Not Reviewed",
+  "Flagged for Second Look",
+  "Approved to Send",
+  "Skip",
+];
+
 export type ActivityKind =
   | "researched"
   | "assigned_rena"
@@ -157,6 +170,13 @@ export interface CreatorWorkspace {
   supervisor?: string | null;
 
   doNotContact?: boolean;
+
+  // Rena's structured review pass (per creator).
+  reviewStatus: ReviewStatus;
+  // Rena's personal bookmark — manual, independent of the review pass.
+  importantFlag: boolean;
+  importantNote: string | null;
+
   activity: Activity[];
 
   // --- v6: contact log, content pieces, deal & ROI ---
@@ -333,6 +353,9 @@ export function defaultsFor(c: CreatorRow): CreatorWorkspace {
 
 
     doNotContact: false,
+    reviewStatus: "Not Reviewed",
+    importantFlag: false,
+    importantNote: null,
     activity: activity.sort((a, b) => a.at.localeCompare(b.at)),
 
     contactAttempts: [],
@@ -462,6 +485,9 @@ const CAMEL_TO_SNAKE: Record<string, string> = {
   lastActivityBy: "last_activity_by",
   supervisor: "supervisor",
   doNotContact: "do_not_contact",
+  reviewStatus: "review_status",
+  importantFlag: "important_flag",
+  importantNote: "important_note",
   contactAttempts: "contact_attempts",
   contentPieces: "content_pieces",
   contentStatus: "content_status",

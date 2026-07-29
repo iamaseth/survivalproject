@@ -23,7 +23,7 @@ import { useTestCreators, testCreatorToRow } from "@/lib/test-creators";
 import { useCurrentTeamMember } from "@/lib/current-team-member";
 import { PageHeader } from "@/components/PageHeader";
 import { PersonalizedDashboard } from "@/components/creators/PersonalizedDashboard";
-import { ExternalLink, Search, Download, AlertCircle, Clock, Mail, Truck, ShieldCheck, Users, CalendarClock, Package, Handshake, Beaker, Sparkles, DollarSign, TrendingUp } from "lucide-react";
+import { ExternalLink, Search, Download, AlertCircle, Clock, Mail, Truck, ShieldCheck, Users, CalendarClock, Package, Handshake, Beaker, Sparkles, DollarSign, TrendingUp, Flag, Star } from "lucide-react";
 import { ResearchDrawer } from "@/components/creators/ResearchDrawer";
 import { rollupRoi } from "@/lib/creator-workspace";
 
@@ -47,11 +47,13 @@ function CreatorsLayout() {
   return <CreatorsList />;
 }
 
-type QueueKey = "all" | "rena" | "vina" | "waiting" | "overdue" | "perry" | "shipping" | "ready";
+type QueueKey = "all" | "rena" | "vina" | "waiting" | "overdue" | "perry" | "shipping" | "ready" | "second_look" | "important";
 
 const QUEUES: { key: QueueKey; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { key: "all", label: "All creators", icon: Search },
   { key: "ready", label: "Ready for outreach", icon: Mail },
+  { key: "second_look", label: "Flagged for Second Look", icon: Flag },
+  { key: "important", label: "Flagged Important", icon: Star },
   { key: "rena", label: "Rena queue", icon: Mail },
   { key: "vina", label: "Vina queue", icon: Mail },
   { key: "waiting", label: "Waiting for reply", icon: Clock },
@@ -89,13 +91,16 @@ function CreatorsList() {
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return allCreators.filter((c) => {
+      const ws = getWorkspace(c);
       if (queue === "rena" && c.outreachOwner !== "RENA") return false;
       if (queue === "vina" && c.outreachOwner !== "VINA") return false;
-      if (queue === "waiting" && !isWaitingForReply(c, getWorkspace(c))) return false;
+      if (queue === "waiting" && !isWaitingForReply(c, ws)) return false;
       if (queue === "overdue" && !isOverdue(c)) return false;
       if (queue === "perry" && !needsPerryApproval(c)) return false;
       if (queue === "shipping" && !["Awaiting Address", "Address Received", "Shipped", "Delivered"].includes(c.normalizedSampleStatus)) return false;
       if (queue === "ready" && !isReadyForOutreach(c)) return false;
+      if (queue === "second_look" && ws.reviewStatus !== "Flagged for Second Look") return false;
+      if (queue === "important" && !ws.importantFlag) return false;
       if (ownerFilter === "RENA" && c.outreachOwner !== "RENA") return false;
       if (ownerFilter === "VINA" && c.outreachOwner !== "VINA") return false;
       if (ownerFilter === "Unassigned" && c.outreachOwner !== null) return false;
@@ -123,6 +128,8 @@ function CreatorsList() {
       ["Awaiting Address", "Address Received", "Shipped", "Delivered"].includes(c.normalizedSampleStatus)
     ).length,
     ready: allCreators.filter(isReadyForOutreach).length,
+    second_look: allCreators.filter((c) => getWorkspace(c).reviewStatus === "Flagged for Second Look").length,
+    important: allCreators.filter((c) => getWorkspace(c).importantFlag).length,
   }), [allCreators, ops.waiting]);
   const roi = useMemo(() => rollupRoi(), [allCreators]);
 
