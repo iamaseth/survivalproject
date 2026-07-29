@@ -1,0 +1,3 @@
+CREATE POLICY "Deny inserts from authenticated" ON public.gmail_send_errors AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (false);
+CREATE POLICY "Deny updates from authenticated" ON public.gmail_send_errors AS RESTRICTIVE FOR UPDATE TO authenticated USING (false) WITH CHECK (false);
+CREATE POLICY "Deny deletes from authenticated" ON public.gmail_send_errors AS RESTRICTIVE FOR DELETE TO authenticated USING (false);
