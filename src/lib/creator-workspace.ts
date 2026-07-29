@@ -353,6 +353,9 @@ export function defaultsFor(c: CreatorRow): CreatorWorkspace {
 
 
     doNotContact: false,
+    reviewStatus: "Not Reviewed",
+    importantFlag: false,
+    importantNote: null,
     activity: activity.sort((a, b) => a.at.localeCompare(b.at)),
 
     contactAttempts: [],
