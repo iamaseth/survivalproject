@@ -115,6 +115,8 @@ export type Database = {
           gmail_confirmed_at: string | null
           gmail_message_id: string | null
           gmail_thread_id: string | null
+          important_flag: boolean
+          important_note: string | null
           last_activity_by: string | null
           last_contact_date: string | null
           last_modified_at: string | null
@@ -131,6 +133,7 @@ export type Database = {
           research_notes: string | null
           responded: boolean
           revenue_attributed_usd: number | null
+          review_status: string
           roi_ratio: number | null
           roi_updated_at: string | null
           sample_cost_usd: number | null
@@ -188,6 +191,8 @@ export type Database = {
           gmail_confirmed_at?: string | null
           gmail_message_id?: string | null
           gmail_thread_id?: string | null
+          important_flag?: boolean
+          important_note?: string | null
           last_activity_by?: string | null
           last_contact_date?: string | null
           last_modified_at?: string | null
@@ -204,6 +209,7 @@ export type Database = {
           research_notes?: string | null
           responded?: boolean
           revenue_attributed_usd?: number | null
+          review_status?: string
           roi_ratio?: number | null
           roi_updated_at?: string | null
           sample_cost_usd?: number | null
@@ -261,6 +267,8 @@ export type Database = {
           gmail_confirmed_at?: string | null
           gmail_message_id?: string | null
           gmail_thread_id?: string | null
+          important_flag?: boolean
+          important_note?: string | null
           last_activity_by?: string | null
           last_contact_date?: string | null
           last_modified_at?: string | null
@@ -277,6 +285,7 @@ export type Database = {
           research_notes?: string | null
           responded?: boolean
           revenue_attributed_usd?: number | null
+          review_status?: string
           roi_ratio?: number | null
           roi_updated_at?: string | null
           sample_cost_usd?: number | null
