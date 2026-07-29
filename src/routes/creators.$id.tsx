@@ -1374,3 +1374,68 @@ function RelationshipPanel({ c }: { c: CreatorRow }) {
     </div>
   );
 }
+
+function reviewTone(s: ReviewStatus): string {
+  switch (s) {
+    case "Flagged for Second Look": return "bg-amber-100 text-amber-900 border-amber-300";
+    case "Approved to Send":        return "bg-emerald-100 text-emerald-900 border-emerald-300";
+    case "Skip":                    return "bg-red-100 text-red-800 border-red-300";
+    default:                        return "bg-secondary text-secondary-foreground border-border";
+  }
+}
+
+function ReviewAndImportantBar({ c }: { c: CreatorRow }) {
+  const ws = useWorkspace(c);
+  const status = ws.reviewStatus ?? "Not Reviewed";
+  const flagged = !!ws.importantFlag;
+  return (
+    <section className="mb-4 rounded-lg border border-border bg-card p-3">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex items-center gap-2">
+          <Flag className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Review</span>
+          <div className="flex flex-wrap gap-1">
+            {REVIEW_STATUSES.map((s) => {
+              const active = status === s;
+              return (
+                <button
+                  key={s}
+                  onClick={() => updateWorkspace(c.id, { reviewStatus: s })}
+                  className={`rounded-md border px-2 py-1 text-[11px] font-medium transition ${
+                    active ? reviewTone(s) : "border-input text-muted-foreground hover:bg-secondary"
+                  }`}
+                >
+                  {s}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="ml-auto flex flex-1 items-center gap-2 md:flex-none">
+          <button
+            onClick={() => updateWorkspace(c.id, { importantFlag: !flagged })}
+            className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium transition ${
+              flagged
+                ? "border-amber-400 bg-amber-100 text-amber-900"
+                : "border-input text-muted-foreground hover:bg-secondary"
+            }`}
+            aria-pressed={flagged}
+            title="Mark as important / follow up (personal bookmark)"
+          >
+            <Star className={`h-3.5 w-3.5 ${flagged ? "fill-current" : ""}`} />
+            {flagged ? "Important" : "Mark important"}
+          </button>
+          {flagged ? (
+            <input
+              value={ws.importantNote ?? ""}
+              onChange={(e) => updateWorkspace(c.id, { importantNote: e.target.value })}
+              placeholder="Short reason (optional)"
+              className="flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs md:w-64"
+            />
+          ) : null}
+        </div>
+      </div>
+    </section>
+  );
+}
