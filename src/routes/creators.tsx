@@ -91,13 +91,16 @@ function CreatorsList() {
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return allCreators.filter((c) => {
+      const ws = getWorkspace(c);
       if (queue === "rena" && c.outreachOwner !== "RENA") return false;
       if (queue === "vina" && c.outreachOwner !== "VINA") return false;
-      if (queue === "waiting" && !isWaitingForReply(c, getWorkspace(c))) return false;
+      if (queue === "waiting" && !isWaitingForReply(c, ws)) return false;
       if (queue === "overdue" && !isOverdue(c)) return false;
       if (queue === "perry" && !needsPerryApproval(c)) return false;
       if (queue === "shipping" && !["Awaiting Address", "Address Received", "Shipped", "Delivered"].includes(c.normalizedSampleStatus)) return false;
       if (queue === "ready" && !isReadyForOutreach(c)) return false;
+      if (queue === "second_look" && ws.reviewStatus !== "Flagged for Second Look") return false;
+      if (queue === "important" && !ws.importantFlag) return false;
       if (ownerFilter === "RENA" && c.outreachOwner !== "RENA") return false;
       if (ownerFilter === "VINA" && c.outreachOwner !== "VINA") return false;
       if (ownerFilter === "Unassigned" && c.outreachOwner !== null) return false;
