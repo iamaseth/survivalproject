@@ -521,22 +521,22 @@ function OutreachPanel({ c }: { c: CreatorRow }) {
 function AssignmentPanel({ c }: { c: CreatorRow }) {
   const ws = useWorkspace(c);
   const today = new Date().toISOString().slice(0, 10);
-  const assign = (to: "RENA" | "VINA" | null) => {
+  const assign = (to: "RENA" | null) => {
     updateWorkspace(c.id, { assignedTo: to, currentOwner: to, assignedDate: to ? today : null });
-    if (to) addActivity(c, { at: today, actor: "RENA", kind: to === "VINA" ? "assigned_vina" : "assigned_rena", action: `Assigned to ${to === "VINA" ? "Vina" : "Rena"}` });
+    if (to) addActivity(c, { at: today, actor: "RENA", kind: "assigned_rena", action: "Assigned to Rena" });
   };
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <Card title="Assignment">
         <FieldRow label="Assigned to">
           <div className="flex gap-1">
-            {(["RENA", "VINA"] as const).map((o) => (
+            {(["RENA"] as const).map((o) => (
               <button
                 key={o}
                 onClick={() => assign(o)}
                 className={`rounded-md px-3 py-1 text-xs font-medium ${ws.assignedTo === o ? "bg-primary text-primary-foreground" : "border border-input hover:bg-secondary"}`}
               >
-                {o === "RENA" ? "Rena" : "Vina"}
+                {"Rena"}
               </button>
             ))}
             <button onClick={() => assign(null)} className="rounded-md border border-input px-3 py-1 text-xs hover:bg-secondary">
@@ -561,7 +561,7 @@ function AssignmentPanel({ c }: { c: CreatorRow }) {
           {[
             "Research (Seth + AI)",
             "AI Recommendation",
-            "Assigned to Rena or Vina",
+            "Assigned to Rena",
             "Outreach",
             "Follow-up",
             "Sample / Shipping",
@@ -1225,7 +1225,7 @@ function PerryApprovalPanel({ c }: { c: CreatorRow }) {
           <span className={`inline-flex rounded px-2 py-1 text-sm font-medium ${perryTone(c.perryApproval)}`}>{c.perryApproval}</span>
         </div>
         <p className="text-sm text-muted-foreground">
-          Perry sets strategy and provides final sign-off before samples ship or affiliate terms are confirmed. Rena and Vina do not proceed to shipping or affiliate confirmation without an approval here.
+          Perry sets strategy and provides final sign-off before samples ship or affiliate terms are confirmed. Rena does not proceed to shipping or affiliate confirmation without an approval here.
         </p>
       </Card>
       <Card title="Perry's comments">

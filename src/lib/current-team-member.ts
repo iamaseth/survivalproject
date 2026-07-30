@@ -38,7 +38,6 @@ const TITLE_BY_ID: Record<TeamMemberId, string> = {
 export const TEAM_MEMBERS: TeamMember[] = [
   { id: "SETH",  name: "Seth",  title: TITLE_BY_ID.SETH,  initials: "SE", role: "researcher" },
   { id: "RENA",  name: "Rena",  title: TITLE_BY_ID.RENA,  initials: "RE", role: "team_lead"  },
-  { id: "VINA",  name: "Vina",  title: TITLE_BY_ID.VINA,  initials: "VI", role: "outreach"   },
   { id: "PERRY", name: "Perry", title: TITLE_BY_ID.PERRY, initials: "PE", role: "executive"  },
 ];
 
