@@ -32,9 +32,9 @@ export const Route = createFileRoute("/creators")({
   head: () => ({
     meta: [
       { title: "Creator Partnerships — Survival Tabs Hub" },
-      { name: "description", content: "Rena & Vina outreach CRM for Survival Tabs creator partnerships: assignments, follow-ups, shipping, and Perry approvals." },
+      { name: "description", content: "Rena-led outreach CRM for Survival Tabs creator partnerships: assignments, follow-ups, shipping, and Perry approvals." },
       { property: "og:title", content: "Creator Partnerships — Survival Tabs Hub" },
-      { property: "og:description", content: "Rena & Vina outreach CRM: assignments, follow-ups, shipping, and Perry approvals." },
+      { property: "og:description", content: "Rena-led outreach CRM: assignments, follow-ups, shipping, and Perry approvals." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -47,7 +47,7 @@ function CreatorsLayout() {
   return <CreatorsList />;
 }
 
-type QueueKey = "all" | "rena" | "vina" | "waiting" | "overdue" | "perry" | "shipping" | "ready" | "second_look" | "important";
+type QueueKey = "all" | "rena" | "waiting" | "overdue" | "perry" | "shipping" | "ready" | "second_look" | "important";
 
 const QUEUES: { key: QueueKey; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { key: "all", label: "All creators", icon: Search },
@@ -55,7 +55,6 @@ const QUEUES: { key: QueueKey; label: string; icon: React.ComponentType<{ classN
   { key: "second_look", label: "Flagged for Second Look", icon: Flag },
   { key: "important", label: "Flagged Important", icon: Star },
   { key: "rena", label: "Rena queue", icon: Mail },
-  { key: "vina", label: "Vina queue", icon: Mail },
   { key: "waiting", label: "Waiting for reply", icon: Clock },
   { key: "overdue", label: "Overdue follow-ups", icon: AlertCircle },
   { key: "perry", label: "Needs Perry approval", icon: ShieldCheck },
@@ -67,11 +66,11 @@ function CreatorsList() {
   const member = useCurrentTeamMember();
   const [q, setQ] = useState("");
   const [queue, setQueue] = useState<QueueKey>("all");
-  // Default the owner filter to the signed-in user when they are Rena or
-  // Vina, so their landing shows only their own creators. A one-click
+  // Default the owner filter to the signed-in user when they are Rena,
+  // so their landing shows only their own creators. A one-click
   // "All" option in the dropdown switches to the full list.
-  const [ownerFilter, setOwnerFilter] = useState<"All" | "RENA" | "VINA" | "Unassigned">(
-    member.id === "RENA" || member.id === "VINA" ? member.id : "All",
+  const [ownerFilter, setOwnerFilter] = useState<"All" | "RENA" | "Unassigned">(
+    member.id === "RENA" ? member.id : "All",
   );
   const [amazonFilter, setAmazonFilter] = useState<"All" | AmazonStatus>("All");
   const [showImport, setShowImport] = useState(false);
@@ -93,7 +92,6 @@ function CreatorsList() {
     return allCreators.filter((c) => {
       const ws = getWorkspace(c);
       if (queue === "rena" && c.outreachOwner !== "RENA") return false;
-      if (queue === "vina" && c.outreachOwner !== "VINA") return false;
       if (queue === "waiting" && !isWaitingForReply(c, ws)) return false;
       if (queue === "overdue" && !isOverdue(c)) return false;
       if (queue === "perry" && !needsPerryApproval(c)) return false;
@@ -102,7 +100,6 @@ function CreatorsList() {
       if (queue === "second_look" && ws.reviewStatus !== "Flagged for Second Look") return false;
       if (queue === "important" && !ws.importantFlag) return false;
       if (ownerFilter === "RENA" && c.outreachOwner !== "RENA") return false;
-      if (ownerFilter === "VINA" && c.outreachOwner !== "VINA") return false;
       if (ownerFilter === "Unassigned" && c.outreachOwner !== null) return false;
       const amazon = amazonStatus(c.amazon);
       if (amazonFilter !== "All" && amazon !== amazonFilter) return false;
@@ -120,7 +117,6 @@ function CreatorsList() {
   const counts = useMemo(() => ({
     total: allCreators.length,
     rena: allCreators.filter((c) => c.outreachOwner === "RENA").length,
-    vina: allCreators.filter((c) => c.outreachOwner === "VINA").length,
     waiting: ops.waiting,
     overdue: allCreators.filter(isOverdue).length,
     perry: allCreators.filter(needsPerryApproval).length,
@@ -138,7 +134,7 @@ function CreatorsList() {
   return (
     <div>
       <PageHeader
-        eyebrow="CRM · Rena supervises · Rena & Vina execute"
+        eyebrow="CRM · Rena supervises & executes"
         title="Creator Partnerships"
         description="Live mirror of the Survival Tabs Influencer Operating System — 250 creators, real sheet columns, assignment queues, outreach history, shipping, and Perry approval."
         actions={
@@ -170,7 +166,6 @@ function CreatorsList() {
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
           <OpsCard icon={<Mail className="h-3.5 w-3.5" />} label="Ready for outreach" value={ops.readyForOutreach} tone="ready" />
           <OpsCard icon={<Users className="h-3.5 w-3.5" />} label="Assigned to Rena" value={ops.rena} />
-          <OpsCard icon={<Users className="h-3.5 w-3.5" />} label="Assigned to Vina" value={ops.vina} />
           <OpsCard icon={<Clock className="h-3.5 w-3.5" />} label="Waiting for reply" value={ops.waiting} tone="warn" />
           <OpsCard icon={<CalendarClock className="h-3.5 w-3.5" />} label="Follow-up due today" value={ops.followUpDueToday} tone="alert" />
           <OpsCard icon={<Package className="h-3.5 w-3.5" />} label="Sample pending" value={ops.samplePending} />
@@ -185,7 +180,6 @@ function CreatorsList() {
         <SummaryCard label="Total" value={counts.total} />
         <SummaryCard label="Ready for outreach" value={counts.ready} tone="ready" />
         <SummaryCard label="Rena" value={counts.rena} />
-        <SummaryCard label="Vina" value={counts.vina} />
         <SummaryCard label="Waiting reply" value={counts.waiting} tone="warn" />
         <SummaryCard label="Overdue" value={counts.overdue} tone="alert" />
         <SummaryCard label="Perry approval" value={counts.perry} tone="warn" />
@@ -208,7 +202,6 @@ function CreatorsList() {
                 // Keep owner dropdown consistent with owner-specific queues
                 // so queue+owner can never form an impossible combination.
                 if (q0.key === "rena" && ownerFilter !== "RENA") setOwnerFilter("All");
-                else if (q0.key === "vina" && ownerFilter !== "VINA") setOwnerFilter("All");
               }}
               className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium ${
                 active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"
@@ -237,18 +230,15 @@ function CreatorsList() {
           <select
             value={ownerFilter}
             onChange={(e) => {
-              const v = e.target.value as "All" | "RENA" | "VINA" | "Unassigned";
+              const v = e.target.value as "All" | "RENA" | "Unassigned";
               setOwnerFilter(v);
               // If the current queue disagrees with the new owner, reset queue.
-              if (v === "RENA" && queue === "vina") setQueue("all");
-              else if (v === "VINA" && queue === "rena") setQueue("all");
-              else if (v === "Unassigned" && (queue === "rena" || queue === "vina")) setQueue("all");
+              if (v === "Unassigned" && queue === "rena") setQueue("all");
             }}
             className="rounded-md border border-input bg-background px-2 py-1.5 text-sm text-foreground"
           >
             <option value="All">All</option>
             <option value="RENA">Rena</option>
-            <option value="VINA">Vina</option>
             <option value="Unassigned">Unassigned</option>
           </select>
         </label>
@@ -303,7 +293,7 @@ function CreatorsList() {
       </div>
 
       <p className="mt-3 text-[11px] text-muted-foreground">
-        Supervisor: <strong>Rena</strong> across all rows. Owner column reflects the current relationship owner (Rena or Vina) as recorded in the master sheet.
+        Supervisor: <strong>Rena</strong> across all rows. Owner column reflects the current relationship owner (Rena) as recorded in the master sheet.
       </p>
     </div>
   );
