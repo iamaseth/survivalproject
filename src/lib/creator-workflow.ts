@@ -66,7 +66,7 @@ export function computeStage(c: CreatorRow, ws: CreatorWorkspace): Stage {
 
 export function nextAction(stage: Stage): string {
   switch (stage) {
-    case "Research Complete": return "Assign to Rena or Vina to begin outreach.";
+    case "Research Complete": return "Assign to Rena to begin outreach.";
     case "Ready for Outreach": return "Draft the initial outreach email.";
     case "Waiting for Reply": return "Waiting for creator response — follow up if no reply within 5 days.";
     case "Follow-up Due": return "Send the follow-up email now.";

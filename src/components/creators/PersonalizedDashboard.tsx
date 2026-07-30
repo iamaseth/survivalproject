@@ -1,6 +1,6 @@
 // Personalized team workspace for Creator Partnerships.
 // The panel changes what it shows based on the mock-authenticated team
-// member: Seth (research), Rena (team lead), Vina (outreach), Perry
+// member: Seth (research), Rena (team lead & outreach), Perry
 // (executive). Every list is derived from the existing CREATORS seed +
 // creator-workspace store — no new persistence, no field renames.
 import { Link } from "@tanstack/react-router";
@@ -56,7 +56,7 @@ const monthStartISO = () => {
 
 // ---------- Selectors per role ----------
 function creatorsOwnedBy(id: TeamMemberId): CreatorRow[] {
-  if (id === "RENA" || id === "VINA") {
+  if (id === "RENA") {
     return CREATORS.filter((c) => {
       const w = getWorkspace(c);
       return (w.currentOwner ?? c.outreachOwner) === id;
@@ -267,7 +267,7 @@ export function PersonalizedDashboard() {
 
       {/* Queue widget kept for Seth (Research queue) only.
           Perry: removed — he uses the full Creators list directly.
-          Rena / Vina: removed — the Creators list opens pre-filtered to
+          Rena: removed — the Creators list opens pre-filtered to
           "Owner = me" from the sidebar / landing redirect, so a preview
           widget just adds a scroll-past step. */}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
@@ -334,7 +334,6 @@ function roleMetricCards(m: TeamMember, x: ReturnType<typeof metricsFor>): Card[
           }).length },
         { label: "Shipping queue", value: ops.samplePending },
         { label: "Follow-up due today", value: ops.followUpDueToday, tone: "alert" },
-        { label: "Vina workload", value: ops.vina },
         { label: "Active partnerships", value: ops.activePartnerships, tone: "ready" },
       ];
     case "SETH":
@@ -353,7 +352,6 @@ function roleMetricCards(m: TeamMember, x: ReturnType<typeof metricsFor>): Card[
         { label: "Published this month", value: x.publishedThisMonth, tone: "ready" },
         { label: "Waiting for reply", value: ops.waiting },
         { label: "Rena workload", value: ops.rena },
-        { label: "Vina workload", value: ops.vina },
       ];
   }
 }

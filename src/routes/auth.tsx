@@ -47,7 +47,7 @@ export function SignInCard({
         <div className="mb-1 text-[11px] uppercase tracking-[0.22em] text-[color:var(--gold)]">Survival Tabs</div>
         <h1 className="font-display text-3xl leading-tight text-foreground">Team Content Hub</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Private workspace for Perry, Seth, Rena and Vina. Sign in with your Survival Tabs Google account.
+          Private workspace for the Survival Tabs team. Sign in with your Survival Tabs Google account.
         </p>
         <button
           onClick={onGoogle}
