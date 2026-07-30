@@ -23,9 +23,10 @@ import { useTestCreators, testCreatorToRow } from "@/lib/test-creators";
 import { useCurrentTeamMember } from "@/lib/current-team-member";
 import { PageHeader } from "@/components/PageHeader";
 import { PersonalizedDashboard } from "@/components/creators/PersonalizedDashboard";
-import { ExternalLink, Search, Download, AlertCircle, Clock, Mail, Truck, ShieldCheck, Users, CalendarClock, Package, Handshake, Beaker, Sparkles, DollarSign, TrendingUp, Flag, Star } from "lucide-react";
+import { ExternalLink, Search, Download, AlertCircle, Clock, Mail, Truck, ShieldCheck, Users, CalendarClock, Package, Handshake, Beaker, Sparkles, DollarSign, TrendingUp, Flag, Star, FileDown } from "lucide-react";
 import { ResearchDrawer } from "@/components/creators/ResearchDrawer";
 import { rollupRoi } from "@/lib/creator-workspace";
+import { exportCreatorsCsv, exportShippingCsv } from "@/lib/csv-export";
 
 export const Route = createFileRoute("/creators")({
   component: CreatorsLayout,
@@ -144,6 +145,22 @@ function CreatorsList() {
               className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
             >
               <Sparkles className="h-3.5 w-3.5" /> Research new creator
+            </button>
+            <button
+              onClick={() => exportCreatorsCsv(filtered, `creators-${queue}`)}
+              disabled={filtered.length === 0}
+              title="Download the rows currently shown (queue + filters + search) as CSV"
+              className="inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-secondary disabled:opacity-50"
+            >
+              <FileDown className="h-3.5 w-3.5" /> Export CSV ({filtered.length})
+            </button>
+            <button
+              onClick={() => exportShippingCsv(filtered)}
+              disabled={filtered.length === 0}
+              title="Shipping-only columns for pick & pack"
+              className="inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-secondary disabled:opacity-50"
+            >
+              <Truck className="h-3.5 w-3.5" /> Export shipping list
             </button>
             <button
               onClick={() => setShowImport((v) => !v)}
