@@ -17,27 +17,16 @@ export const listCreators = createServerFn({ method: "GET" })
     return { rows: (data ?? []) as Array<Record<string, Json>> };
   });
 
-// Idempotent one-time seed from the client's SEED_CREATORS array. Only inserts
-// when the table is empty — so it can safely be called on every app boot.
+// Legacy compatibility endpoint. Automatic static seeding is intentionally disabled.
+// The production `creators` table is the source of truth and must never be repopulated
+// from the old hard-coded SEED_CREATORS roster on application startup.
 export const seedCreatorsFromStatic = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { rows: CreatorDBRow[] }) => {
     if (!data || !Array.isArray(data.rows)) throw new Error("rows required");
     return data;
   })
-  .handler(async ({ data, context }) => {
-    if (data.rows.length === 0) return { inserted: 0, existing: 0 };
-    const { count: beforeCount } = await context.supabase
-      .from("creators")
-      .select("id", { count: "exact", head: true });
-    if ((beforeCount ?? 0) > 0) return { inserted: 0, existing: beforeCount ?? 0 };
-
-    const { error } = await context.supabase
-      .from("creators")
-      .upsert(data.rows as never, { onConflict: "id", ignoreDuplicates: true });
-    if (error) throw new Error(error.message);
-    return { inserted: data.rows.length, existing: 0 };
-  });
+  .handler(async () => ({ inserted: 0, existing: 0, disabled: true }));
 
 export type CreatorImportRow = {
   code: string | null;
