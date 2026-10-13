@@ -8,6 +8,7 @@ import {
   MessageSquare,
   FileText,
   BookOpen,
+  Clapperboard,
   FolderOpen,
   BarChart3,
   Settings as SettingsIcon,
@@ -16,6 +17,7 @@ import {
   ChevronDown,
   LogOut,
   User as UserIcon,
+  Building2,
 } from "lucide-react";
 
 import { useAuth } from "@/lib/current-user";
@@ -26,24 +28,62 @@ import { pollGmailForReplies } from "@/lib/gmail.functions";
 import { TestModeBanner } from "@/components/TestModeBanner";
 import { GmailHealthBanner } from "@/components/GmailHealthBanner";
 
-const nav = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { to: "/creators", label: "Creator Partnerships", icon: Users },
-  { to: "/campaigns", label: "Campaigns", icon: Megaphone },
-  { to: "/communications", label: "Communications", icon: MessageSquare },
-  { to: "/templates", label: "Templates", icon: FileText },
-  { to: "/knowledge", label: "Knowledge Center", icon: BookOpen },
-  { to: "/content", label: "Content", icon: FolderOpen },
-  { to: "/analytics", label: "Analytics", icon: BarChart3 },
-  { to: "/settings", label: "Settings", icon: SettingsIcon },
+type BrandId = "survival-tabs" | "swedish-bitters" | "microbebio";
+
+const brands: Array<{ id: BrandId; label: string; enabled: boolean }> = [
+  { id: "survival-tabs", label: "Survival Tabs", enabled: true },
+  { id: "swedish-bitters", label: "Swedish Bitters", enabled: false },
+  { id: "microbebio", label: "MicrobeBio", enabled: false },
+];
+
+const navSections = [
+  {
+    label: null,
+    items: [{ to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true }],
+  },
+  {
+    label: "Promotion",
+    items: [
+      { to: "/creators", label: "Influencers", icon: Users },
+      { to: "/knowledge", label: "Content", icon: BookOpen },
+      { to: "/book", label: "Preparedness Book", icon: FolderOpen },
+      { to: "/video", label: "Video", icon: Clapperboard },
+      { to: "/campaigns", label: "Campaigns", icon: Megaphone },
+    ],
+  },
+  {
+    label: "Outreach",
+    items: [
+      { to: "/communications", label: "Communications", icon: MessageSquare },
+      { to: "/templates", label: "Templates", icon: FileText },
+    ],
+  },
+  {
+    label: "Results",
+    items: [{ to: "/analytics", label: "Analytics", icon: BarChart3 }],
+  },
+  {
+    label: "System",
+    items: [{ to: "/settings", label: "Settings", icon: SettingsIcon }],
+  },
 ];
 
 export function AppShell() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const auth = useAuth();
+  const [brandId, setBrandId] = useState<BrandId>("survival-tabs");
 
-  // Push authenticated identity into the workspace store so every activity /
-  // update auto-populates created_by, last_modified_by, actor name & role.
+  useEffect(() => {
+    const saved = window.localStorage.getItem("promotion-os-brand") as BrandId | null;
+    if (saved && brands.some((brand) => brand.id === saved && brand.enabled)) {
+      setBrandId(saved);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("promotion-os-brand", brandId);
+  }, [brandId]);
+
   useEffect(() => {
     if (auth.status === "authenticated" && auth.profile.teamId) {
       setCurrentActor({
@@ -57,8 +97,6 @@ export function AppShell() {
     }
   }, [auth]);
 
-  // Hydrate team-shared workspace state from Supabase once per session; the
-  // helper also runs the one-time localStorage → DB migration on first boot.
   useEffect(() => {
     if (auth.status === "authenticated" && auth.profile.role) {
       void hydrateWorkspaceFromDB();
@@ -66,15 +104,11 @@ export function AppShell() {
     }
   }, [auth.status, auth.profile?.role]);
 
-  // Background Gmail poller — checks every 3 minutes for new creator replies
-  // once the user is signed in with a role. Silently skipped if Gmail isn't
-  // connected (the server fn returns { polled: false, reason: "not_connected" }).
   const poll = useServerFn(pollGmailForReplies);
   useEffect(() => {
     if (auth.status !== "authenticated" || !auth.profile.role) return;
     let cancelled = false;
     const tick = () => { if (!cancelled) void poll().catch(() => {}); };
-    // Kick off ~10s after mount, then every 3 minutes.
     const initial = window.setTimeout(tick, 10_000);
     const interval = window.setInterval(tick, 3 * 60_000);
     return () => { cancelled = true; window.clearTimeout(initial); window.clearInterval(interval); };
@@ -92,48 +126,71 @@ export function AppShell() {
     return <InlineSignIn auth={auth} />;
   }
 
-  // Signed in but no role assignment on the allow-list.
   if (!auth.profile.role) {
     return <NoAccess email={auth.profile.email} onSignOut={auth.signOut} />;
   }
 
   return (
     <div className="grid min-h-screen w-full grid-cols-[260px_minmax(0,1fr)] bg-background">
-      {/* Sidebar */}
       <aside className="sticky top-0 flex h-screen flex-col bg-sidebar text-sidebar-foreground">
-        <div className="border-b border-sidebar-border px-6 py-5">
-          <div className="text-[10px] uppercase tracking-[0.22em] text-sidebar-primary">Survival Tabs</div>
-          <div className="font-display text-xl leading-tight text-sidebar-foreground">Team Content Hub</div>
+        <div className="border-b border-sidebar-border px-5 py-5">
+          <div className="text-[10px] uppercase tracking-[0.22em] text-sidebar-primary">Promotion OS</div>
+          <div className="font-display text-xl leading-tight text-sidebar-foreground">Promotion Workspace</div>
+          <div className="mt-4">
+            <label className="mb-1.5 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/55">
+              <Building2 className="h-3.5 w-3.5" /> Brand
+            </label>
+            <select
+              value={brandId}
+              onChange={(event) => setBrandId(event.target.value as BrandId)}
+              className="w-full rounded-md border border-sidebar-border bg-sidebar-accent px-3 py-2 text-sm text-sidebar-accent-foreground outline-none"
+            >
+              {brands.map((brand) => (
+                <option key={brand.id} value={brand.id} disabled={!brand.enabled}>
+                  {brand.label}{brand.enabled ? "" : " — coming next"}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
-          {nav.map((item) => {
-            const active = item.exact ? pathname === item.to : pathname === item.to || pathname.startsWith(item.to + "/");
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm transition ${
-                  active
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
-                }`}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                <span className="truncate">{item.label}</span>
-              </Link>
-            );
-          })}
+        <nav className="flex-1 overflow-y-auto px-3 py-4">
+          {navSections.map((section, sectionIndex) => (
+            <div key={section.label ?? "home"} className={sectionIndex === 0 ? "" : "mt-5"}>
+              {section.label ? (
+                <div className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/50">
+                  {section.label}
+                </div>
+              ) : null}
+              <div className="space-y-0.5">
+                {section.items.map((item) => {
+                  const active = "exact" in item && item.exact ? pathname === item.to : pathname === item.to || pathname.startsWith(item.to + "/");
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm transition ${
+                        active
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                          : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
         <div className="border-t border-sidebar-border px-4 py-4 text-xs text-sidebar-foreground/70">
-          <div className="mb-1 uppercase tracking-[0.18em] text-sidebar-primary">Primary objective</div>
-          <p className="leading-snug">
-            Drive qualified traffic and measurable sales to TheSurvivalTabs.com and approved Amazon listings.
-          </p>
+          <div className="mb-1 uppercase tracking-[0.18em] text-sidebar-primary">Active brand</div>
+          <p className="font-medium text-sidebar-foreground">Survival Tabs</p>
+          <p className="mt-1 leading-snug">Influencer, content, book and video workflows are being consolidated here one module at a time.</p>
         </div>
       </aside>
 
-      {/* Main */}
       <div className="flex min-w-0 flex-col">
         <TestModeBanner />
         <GmailHealthBanner />
@@ -142,9 +199,13 @@ export function AppShell() {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="search"
-              placeholder="Search assets, leads, tasks…"
+              placeholder="Search promotion work…"
               className="w-full max-w-md rounded-md border border-input bg-card py-2 pl-9 pr-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
             />
+          </div>
+          <div className="hidden text-right md:block">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Brand</div>
+            <div className="text-sm font-medium">Survival Tabs</div>
           </div>
           <button className="relative rounded-md border border-border bg-card p-2 hover:bg-secondary">
             <Bell className="h-4 w-4" />
@@ -186,7 +247,7 @@ function NoAccess({ email, onSignOut }: { email: string; onSignOut: () => void }
         <div className="mb-1 text-[11px] uppercase tracking-[0.22em] text-[color:var(--gold)]">Access needed</div>
         <h1 className="font-display text-2xl text-foreground">You're signed in, but not on the team list</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          <span className="font-medium text-foreground">{email}</span> isn't mapped to a Survival Tabs role yet.
+          <span className="font-medium text-foreground">{email}</span> isn't mapped to a Promotion OS role yet.
           Ask a team admin to add you.
         </p>
         <button
@@ -263,7 +324,6 @@ function ProfileMenu({
           <div className="py-1">
             <MenuItem icon={UserIcon} label="Profile" onClick={() => { setOpen(false); navigate({ to: "/settings" }); }} />
             <MenuItem icon={SettingsIcon} label="Settings" onClick={() => { setOpen(false); navigate({ to: "/settings" }); }} />
-
           </div>
           <div className="border-t border-border pt-1">
             <MenuItem
